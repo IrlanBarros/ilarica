@@ -1,0 +1,38 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+
+# Docker volumes/data
+pgdata/
+redisdata/
+data/
+
+# PostgreSQL dumps
+*.sql
+*.dump
+*.backup
+
+# SSL / certificates
+nginx/ssl/
+*.pem
+*.key
+*.crt
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
