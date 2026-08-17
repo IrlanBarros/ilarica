@@ -1,0 +1,309 @@
+"""SQLAlchemy-backed repository implementations for application ports.
+
+These classes implement the interfaces declared in
+`app.application.ports.repositories` using an injected SQLAlchemy
+`Session`. Repositories are intentionally thin and focus only on
+persistence and simple queries; business rules live in the service
+layer.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import Iterable, List, Optional
+from uuid import uuid4
+
+from sqlalchemy.orm import Session
+
+from app.application.ports.repositories import (
+    IDeliveryRideRepository,
+    IInvitationKeyRepository,
+    IOrderRepository,
+    IProductRepository,
+    IWalletRepository,
+    IUserRepository,
+)
+from app.database.models import (
+    DeliveryRideModel,
+    InvitationKeyModel,
+    OrderModel,
+    OrderStatus,
+    ProductModel,
+    WalletModel,
+    UserModel,
+)
+from app.domain.access_identity.invitation_key import InvitationKey
+from app.domain.access_identity.user import User
+from app.domain.catalog.product import Product
+from app.domain.financial.wallet import Wallet
+from app.domain.logistics.delivery_ride import DeliveryRide
+from app.domain.order.order import Order
+
+
+def _to_domain_user(model: UserModel) -> User:
+    return User(
+        id=str(model.id),
+        email=model.email,
+        password_hash=getattr(model, "password_hash", ""),
+        role=getattr(model, "role_type", "customer"),
+        is_active=True,
+    )
+
+
+def _to_domain_product(model: ProductModel) -> Product:
+    return Product(
+        id=str(model.id),
+        name=model.name,
+        price=Decimal(str(model.price)),
+        is_active=model.is_active,
+        stock_quantity=0,
+        is_fast_stock_enabled=model.is_fast_stock_enabled,
+    )
+
+
+def _to_domain_order(model: OrderModel) -> Order:
+    return Order(
+        id=str(model.id),
+        user_id=str(model.customer_id),
+        items=[],
+        status=str(model.status),
+        is_paid=str(model.status) in {Order.STATUS_PAID, Order.STATUS_IN_TRANSIT, Order.STATUS_READY_FOR_PICKUP, Order.STATUS_COMPLETED},
+        pickup_pin=model.pickup_pin,
+        canteen_id=str(model.canteen_id),
+        drop_off_zone_id=str(model.drop_off_zone_id),
+        delivery_ride_id=str(model.delivery_ride.id) if getattr(model, "delivery_ride", None) else None,
+    )
+
+
+def _to_domain_wallet(model: WalletModel) -> Wallet:
+    return Wallet(id=str(model.id), user_id=str(model.user_id), balance=Decimal(str(model.available_balance)))
+
+
+class SQLAlchemyUserRepository(IUserRepository):
+    """Concrete `IUserRepository` backed by SQLAlchemy models."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_id(self, user_id: str) -> Optional[User]:
+        model = self.session.get(UserModel, user_id)
+        return _to_domain_user(model) if model is not None else None
+
+    def get_by_email(self, email: str) -> Optional[User]:
+        model = self.session.query(UserModel).filter_by(email=email).one_or_none()
+        return _to_domain_user(model) if model is not None else None
+
+    def save(self, user: User) -> User:
+        model = self.session.get(UserModel, user.id)
+        if model is None:
+            model = UserModel(id=user.id, name=user.email.split("@")[0], email=user.email, password_hash=user.password_hash, role_type=user.role)
+            self.session.add(model)
+        else:
+            model.email = user.email
+            model.password_hash = user.password_hash
+            model.role_type = user.role
+        self.session.flush()
+        return _to_domain_user(model)
+
+    def add(self, user: User) -> User:
+        model = UserModel(id=user.id, name=user.email.split("@")[0], email=user.email, password_hash=user.password_hash, role_type=user.role)
+        self.session.add(model)
+        self.session.flush()
+        return _to_domain_user(model)
+
+
+class SQLAlchemyInvitationKeyRepository(IInvitationKeyRepository):
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_value(self, key_value: str) -> Optional[InvitationKey]:
+        model = self.session.query(InvitationKeyModel).filter_by(key_string=key_value).one_or_none()
+        if model is None:
+            return None
+        return InvitationKey(
+            key=model.key_string,
+            issued_to_email="",
+            expires_at=model.expires_at,
+            used_by_user_id=model.id,
+            is_used=model.is_used,
+            is_expired=model.is_used,
+        )
+
+    def save(self, invitation_key: InvitationKey) -> InvitationKey:
+        model = self.session.query(InvitationKeyModel).filter_by(key_string=invitation_key.key).one_or_none()
+        if model is None:
+            model = InvitationKeyModel(
+                id=uuid4(),
+                key_string=invitation_key.key,
+                is_used=invitation_key.is_used,
+                expires_at=invitation_key.expires_at,
+            )
+            self.session.add(model)
+        else:
+            model.is_used = invitation_key.is_used
+            model.expires_at = invitation_key.expires_at
+        self.session.flush()
+        return invitation_key
+
+    def consume(self, invitation_key: InvitationKey, user_id: str) -> InvitationKey:
+        invitation_key.consume(user_id)
+        return self.save(invitation_key)
+
+
+class SQLAlchemyProductRepository(IProductRepository):
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_id(self, product_id: str) -> Optional[Product]:
+        model = self.session.get(ProductModel, product_id)
+        return _to_domain_product(model) if model is not None else None
+
+    def save(self, product: Product) -> Product:
+        model = self.session.get(ProductModel, product.id)
+        canteen_id = getattr(product, "canteen_id", None)
+        if model is None:
+            model = ProductModel(
+                id=product.id,
+                canteen_id=canteen_id,
+                name=product.name,
+                price=float(product.price),
+                is_active=product.is_active,
+                is_fast_stock_enabled=product.is_fast_stock_enabled,
+            )
+            self.session.add(model)
+        else:
+            model.name = product.name
+            model.price = float(product.price)
+            model.is_active = product.is_active
+            model.is_fast_stock_enabled = product.is_fast_stock_enabled
+            if canteen_id is not None:
+                model.canteen_id = canteen_id
+        self.session.flush()
+        return _to_domain_product(model)
+
+    def list_by_ids(self, product_ids: Iterable[str]) -> List[Product]:
+        models = self.session.query(ProductModel).filter(ProductModel.id.in_(list(product_ids))).all()
+        return [_to_domain_product(m) for m in models]
+
+
+class SQLAlchemyOrderRepository(IOrderRepository):
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_id(self, order_id: str) -> Optional[Order]:
+        model = self.session.get(OrderModel, order_id)
+        return _to_domain_order(model) if model is not None else None
+
+    def save(self, order: Order) -> Order:
+        model = self.session.get(OrderModel, order.id)
+        if model is None:
+            model = OrderModel(
+                id=order.id,
+                customer_id=order.user_id,
+                canteen_id=order.canteen_id,
+                drop_off_zone_id=order.drop_off_zone_id,
+                status=OrderStatus(order.status),
+                total_amount=float(order.total_with_delivery()),
+                pickup_pin=order.pickup_pin,
+            )
+            self.session.add(model)
+        else:
+            model.status = OrderStatus(order.status) if isinstance(order.status, str) else order.status
+            model.total_amount = float(order.total_with_delivery())
+            model.pickup_pin = order.pickup_pin
+        self.session.flush()
+        return _to_domain_order(model)
+
+    def add(self, order: Order) -> Order:
+        model = OrderModel(
+            id=order.id,
+            customer_id=order.user_id,
+            canteen_id=order.canteen_id,
+            drop_off_zone_id=order.drop_off_zone_id,
+            status=OrderStatus(order.status),
+            total_amount=float(order.total_with_delivery()),
+            pickup_pin=order.pickup_pin,
+        )
+        self.session.add(model)
+        self.session.flush()
+        return _to_domain_order(model)
+
+
+class SQLAlchemyDeliveryRideRepository(IDeliveryRideRepository):
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_id(self, ride_id: str) -> Optional[DeliveryRide]:
+        model = self.session.get(DeliveryRideModel, ride_id)
+        if model is None:
+            return None
+        return DeliveryRide(
+            id=str(model.id),
+            order_id=str(model.order_id),
+            status=model.status,
+            assigned_courier_id=str(model.courier_id) if model.courier_id else None,
+        )
+
+    def get_by_order_id(self, order_id: str) -> Optional[DeliveryRide]:
+        model = self.session.query(DeliveryRideModel).filter_by(order_id=order_id).one_or_none()
+        if model is None:
+            return None
+        return DeliveryRide(
+            id=str(model.id),
+            order_id=str(model.order_id),
+            status=model.status,
+            assigned_courier_id=str(model.courier_id) if model.courier_id else None,
+        )
+
+    def save(self, ride: DeliveryRide) -> DeliveryRide:
+        if ride.order_id is None:
+            raise ValueError("A delivery ride must be linked to an order before it can be persisted.")
+        model = self.session.get(DeliveryRideModel, ride.id)
+        if model is None:
+            model = DeliveryRideModel(
+                id=ride.id,
+                order_id=ride.order_id,
+                courier_id=ride.assigned_courier_id,
+                status=ride.status,
+            )
+            self.session.add(model)
+        else:
+            model.order_id = ride.order_id
+            model.courier_id = ride.assigned_courier_id
+            model.status = ride.status
+        self.session.flush()
+        return ride
+
+
+class SQLAlchemyWalletRepository(IWalletRepository):
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_user_id(self, user_id: str) -> Optional[Wallet]:
+        model = self.session.query(WalletModel).filter_by(user_id=user_id).one_or_none()
+        return _to_domain_wallet(model) if model is not None else None
+
+    def save(self, wallet: Wallet) -> Wallet:
+        model = self.session.get(WalletModel, wallet.id)
+        if model is None:
+            model = WalletModel(id=wallet.id, user_id=wallet.user_id, available_balance=wallet.balance)
+            self.session.add(model)
+        else:
+            model.available_balance = float(wallet.balance)
+        self.session.flush()
+        return _to_domain_wallet(model)
+
+    def create_for_user(self, user_id: str) -> Wallet:
+        model = WalletModel(user_id=user_id, available_balance=0)
+        self.session.add(model)
+        self.session.flush()
+        return _to_domain_wallet(model)
+
+
+__all__ = [
+    "SQLAlchemyUserRepository",
+    "SQLAlchemyInvitationKeyRepository",
+    "SQLAlchemyProductRepository",
+    "SQLAlchemyOrderRepository",
+    "SQLAlchemyDeliveryRideRepository",
+    "SQLAlchemyWalletRepository",
+]

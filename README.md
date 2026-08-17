@@ -1,120 +1,99 @@
-# 🍽️ iLarica
+# iLarica
 
-Projeto em desenvolvimento utilizando FastAPI, PostgreSQL, Redis e Nginx com Docker.
+Projeto com arquitetura orientada a dominio usando FastAPI no backend, React + Vite no frontend e infraestrutura com PostgreSQL, Redis, Nginx e Docker Compose.
 
-## ✅ Pré-requisitos
+## Requisitos
 
-Antes de rodar o projeto, tenha instalado na máquina:
-
-- Git
 - Docker
 - Docker Compose
 
-Para verificar se está tudo instalado:
+Verificacao:
 
 ```bash
-git --version
 docker --version
 docker compose version
 ```
 
-## 📥 Como clonar o projeto
+## Estrutura de Compose
 
-Clone o repositório:
+- `docker-compose.yaml`: servicos base (`db`, `cache`)
+- `docker-compose.dev.yaml`: ambiente de desenvolvimento (`backend`, `frontend`, `nginx`)
+- `docker-compose.prod.yaml`: ambiente de producao
 
-```bash
-git clone LINK_DO_REPOSITORIO_AQUI
-```
+## Configuracao de ambiente
 
-Entre na pasta do projeto:
-
-```bash
-cd NOME_DA_PASTA_DO_PROJETO
-```
-
-## ⚙️ Configuração do ambiente
-
-Crie um arquivo `.env` na raiz do projeto com o seguinte conteúdo:
-
-```env
-DB_USER=ilarica_user
-DB_PASSWORD=ilarica_pass
-DB_NAME=ilarica_db
-```
-
-Esses valores são usados apenas para o ambiente de desenvolvimento local.
-
-## 🚀 Como subir o projeto
-
-Na raiz do projeto, execute:
+1. Copie o arquivo de exemplo:
 
 ```bash
-docker compose up --build
+cp .env.example .env
 ```
 
-Esse comando irá criar e iniciar os containers da aplicação, banco de dados, Redis e Nginx.
+2. Ajuste os valores no `.env` para sua maquina.
 
-## 🌐 Acessando a aplicação
+Importante: nunca comite `.env`.
 
-Após subir os containers, acesse no navegador:
+## Subir em desenvolvimento
 
-```text
-http://localhost:8080
-```
-
-Também é possível acessar diretamente a aplicação FastAPI em:
-
-```text
-http://localhost:8000
-```
-
-## 📦 Verificar containers em execução
-
-Para conferir se os containers estão rodando:
+Na raiz do projeto:
 
 ```bash
-docker compose ps
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up --build -d
 ```
 
-## 🧾 Ver logs da aplicação
-
-Para acompanhar os logs de todos os serviços:
+Parar:
 
 ```bash
-docker compose logs -f
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down
 ```
 
-Ou apenas os logs da aplicação:
+Resetar volumes de dados locais:
 
 ```bash
-docker compose logs -f app
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
 ```
 
-## 🛑 Parar o projeto
+## Endpoints locais
 
-Para parar os containers:
+- Frontend: `http://localhost:5173`
+- API FastAPI: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
+- Nginx: `http://localhost:8080`
+
+## Seed de dados
+
+Com os servicos em execucao, rode:
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml exec -T backend python scripts/seed.py
 ```
 
-## ♻️ Resetar o banco de dados
+O seed cria usuarios de teste, wallets, cantinas, produtos e pedidos.
 
-Caso seja necessário apagar os dados locais e recriar os volumes:
+## Testes
+
+Para rodar os testes do backend localmente:
 
 ```bash
-docker compose down -v
+cd back-end
+PYTHONPATH=. pytest -q
 ```
 
-Depois suba novamente:
+## Qualidade de codigo (local)
+
+Para validar localmente os mesmos gates principais do CI:
 
 ```bash
-docker compose up --build
+cd back-end
+ruff check app tests scripts
+mypy app
 ```
 
-## ⚠️ Observações importantes
+## CI
 
-- Não envie o arquivo `.env` para o GitHub.
-- O arquivo `.env` deve ser criado manualmente por cada pessoa que clonar o projeto.
-- Certifique-se de que as portas `8080`, `8000`, `5432` e `6379` não estejam sendo usadas por outros serviços.
-- O projeto está configurado para desenvolvimento, com recarregamento automático da aplicação.
+Pipeline GitHub Actions em `.github/workflows/ci.yml` com:
+
+- lint (`ruff`)
+- type-check (`mypy`)
+- testes (`pytest`)
+- PostgreSQL 15 como service container
+- upload de artefatos de teste (`coverage.xml` e `pytest-report.xml`)
