@@ -58,3 +58,12 @@ nginx/ssl/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Test runners
+test-results/
+playwright-report/

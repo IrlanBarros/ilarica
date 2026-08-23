@@ -7,6 +7,9 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.database.session import get_db
+from main import app
+
 
 def test_create_user_success(client: TestClient):
     payload = {"name": "Test User", "email": "testuser@ufca.edu.br", "password": "Secret123", "role": "customer"}
@@ -23,6 +26,17 @@ def test_create_user_validation_error(client: TestClient):
     payload = {"name": "No Email", "password": "Secret123", "role": "customer"}
     resp = client.post("/users/", json=payload)
     assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_create_user_is_public_without_auth_override(client: TestClient):
+    db_override = app.dependency_overrides[get_db]
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_db] = db_override
+
+    payload = {"name": "Public User", "email": "public@ufca.edu.br", "password": "Secret123", "role": "customer"}
+    resp = client.post("/users/", json=payload)
+
+    assert resp.status_code == HTTPStatus.CREATED
 
 
 def test_list_users(client: TestClient):
@@ -49,6 +63,17 @@ def test_get_user_by_id(client: TestClient):
     assert resp.status_code == HTTPStatus.OK
     data = resp.json()
     assert data["email"] == payload["email"]
+
+
+def test_get_current_user_profile(client: TestClient):
+    resp = client.get("/users/me")
+
+    assert resp.status_code == HTTPStatus.OK
+    data = resp.json()
+    assert data["id"] == "test-auth-user"
+    assert data["email"] == "qa-auth@ufca.edu.br"
+    assert data["role"] == "admin"
+    assert "password" not in data
 
 
 def test_update_user_patch(client: TestClient):

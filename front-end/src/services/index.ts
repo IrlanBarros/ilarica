@@ -1,1 +1,11 @@
-// Serviços de API do iLarica
+export * from './auth.service';
+export * from './canteen.service';
+export * from './delivery-ride.service';
+export * from './drop-off-zone.service';
+export * from './invitation-key.service';
+export * from './order.service';
+export * from './payment-transaction.service';
+export * from './product.service';
+export * from './transport-kit.service';
+export * from './user.service';
+export * from './wallet.service';

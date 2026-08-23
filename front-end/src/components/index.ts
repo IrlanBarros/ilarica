@@ -1,1 +1,2 @@
-// Componentes reutilizáveis do iLarica
+export * from './ProtectedRoute';
+export * from './ui';
