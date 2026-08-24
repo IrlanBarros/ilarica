@@ -67,3 +67,5 @@ Thumbs.db
 # Test runners
 test-results/
 playwright-report/
+
+/output
