@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 import type { Product } from '../types';
 
@@ -7,11 +8,19 @@ export interface CartItem {
   quantity: number;
 }
 
+export class CartCanteenConflictError extends Error {
+  constructor() {
+    super('Cart contains items from another canteen. Clear or replace the cart before adding this product.');
+    this.name = 'CartCanteenConflictError';
+  }
+}
+
 interface CartState {
   items: CartItem[];
   canteenId: string | null;
   total: number;
   addItem: (product: Product, quantity?: number) => void;
+  replaceCart: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -22,11 +31,34 @@ function toMoneyNumber(value: string): number {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
-function calculateTotal(items: CartItem[]): number {
+export function calculateCartTotal(items: CartItem[]): number {
   return items.reduce((acc, item) => acc + toMoneyNumber(item.product.price) * item.quantity, 0);
 }
 
-export const useCartStore = create<CartState>((set, get) => ({
+function isCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<CartItem>;
+  return (
+    Number.isInteger(candidate.quantity) &&
+    Number(candidate.quantity) > 0 &&
+    Boolean(candidate.product) &&
+    typeof candidate.product?.id === 'string' &&
+    typeof candidate.product?.canteen_id === 'string' &&
+    typeof candidate.product?.name === 'string' &&
+    typeof candidate.product?.price === 'string'
+  );
+}
+
+function sanitizePersistedItems(value: unknown): CartItem[] {
+  if (!Array.isArray(value)) return [];
+  const validItems = value.filter(isCartItem);
+  const firstCanteenId = validItems[0]?.product.canteen_id;
+  return firstCanteenId
+    ? validItems.filter((item) => item.product.canteen_id === firstCanteenId)
+    : [];
+}
+
+export const useCartStore = create<CartState>()(persist((set, get) => ({
   items: [],
   canteenId: null,
   total: 0,
@@ -39,7 +71,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     const { items, canteenId } = get();
 
     if (canteenId !== null && canteenId !== product.canteen_id) {
-      throw new Error('Cart contains items from another canteen. Clear cart before adding this product.');
+      throw new CartCanteenConflictError();
     }
 
     const existingItem = items.find((item) => item.product.id === product.id);
@@ -61,7 +93,19 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({
       items: nextItems,
       canteenId: product.canteen_id,
-      total: calculateTotal(nextItems),
+      total: calculateCartTotal(nextItems),
+    });
+  },
+
+  replaceCart(product: Product, quantity = 1): void {
+    if (quantity <= 0) {
+      throw new Error('Quantity must be greater than zero.');
+    }
+    const nextItems = [{ product, quantity }];
+    set({
+      items: nextItems,
+      canteenId: product.canteen_id,
+      total: calculateCartTotal(nextItems),
     });
   },
 
@@ -72,7 +116,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({
       items: nextItems,
       canteenId: nextItems.length > 0 ? nextItems[0].product.canteen_id : null,
-      total: calculateTotal(nextItems),
+      total: calculateCartTotal(nextItems),
     });
   },
 
@@ -95,7 +139,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({
       items: nextItems,
       canteenId: nextItems.length > 0 ? nextItems[0].product.canteen_id : null,
-      total: calculateTotal(nextItems),
+      total: calculateCartTotal(nextItems),
     });
   },
 
@@ -105,5 +149,23 @@ export const useCartStore = create<CartState>((set, get) => ({
       canteenId: null,
       total: 0,
     });
+  },
+}), {
+  name: 'ilarica-cart',
+  version: 1,
+  partialize: (state) => ({
+    items: state.items,
+    canteenId: state.canteenId,
+    total: state.total,
+  }),
+  merge: (persistedState, currentState) => {
+    const persisted = persistedState as Partial<CartState>;
+    const items = sanitizePersistedItems(persisted.items);
+    return {
+      ...currentState,
+      items,
+      canteenId: items[0]?.product.canteen_id ?? null,
+      total: calculateCartTotal(items),
+    };
   },
 }));

@@ -1,10 +1,5 @@
 import { apiClient } from '../api';
-import type {
-  ApiMessageResponse,
-  PaymentTransaction,
-  PaymentTransactionCreate,
-  PaymentTransactionUpdate,
-} from '../types';
+import type { PaymentIntentCreate, PaymentTransaction } from '../types';
 
 export async function listPaymentTransactions(): Promise<PaymentTransaction[]> {
   const response = await apiClient.get<PaymentTransaction[]>('/payment-transactions/');
@@ -16,20 +11,12 @@ export async function getPaymentTransaction(transactionId: string): Promise<Paym
   return response.data;
 }
 
-export async function createPaymentTransaction(payload: PaymentTransactionCreate): Promise<PaymentTransaction> {
-  const response = await apiClient.post<PaymentTransaction>('/payment-transactions/', payload);
-  return response.data;
-}
-
-export async function updatePaymentTransaction(
-  transactionId: string,
-  payload: PaymentTransactionUpdate,
+export async function createPaymentTransaction(
+  payload: PaymentIntentCreate,
+  idempotencyKey: string,
 ): Promise<PaymentTransaction> {
-  const response = await apiClient.patch<PaymentTransaction>(`/payment-transactions/${transactionId}`, payload);
-  return response.data;
-}
-
-export async function deletePaymentTransaction(transactionId: string): Promise<ApiMessageResponse> {
-  const response = await apiClient.delete<ApiMessageResponse>(`/payment-transactions/${transactionId}`);
+  const response = await apiClient.post<PaymentTransaction>('/payment-transactions/', payload, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
   return response.data;
 }

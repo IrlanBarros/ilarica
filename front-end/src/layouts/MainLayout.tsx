@@ -1,9 +1,14 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
 import { useAuthStore } from '../store';
 
 export function MainLayout(): React.JSX.Element {
   const logout = useAuthStore((state) => state.logout);
+  const location = useLocation();
+
+  if (location.pathname === '/' || location.pathname === '/carrinho' || location.pathname === '/checkout' || location.pathname.startsWith('/cantina/') || location.pathname.startsWith('/pedidos/') || location.pathname.startsWith('/pagamentos/')) {
+    return <Outlet />;
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">

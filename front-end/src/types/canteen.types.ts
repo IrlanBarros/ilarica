@@ -15,12 +15,10 @@ export interface CanteenCreate {
   location: string;
   user_id: string;
   is_open?: boolean;
-  products?: string[];
 }
 
 export interface CanteenUpdate {
   name?: string | null;
   location?: string | null;
   is_open?: boolean | null;
-  products?: string[] | null;
 }

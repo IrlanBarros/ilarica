@@ -20,7 +20,10 @@ export interface OrderItem extends OrderItemBase {
   id: string;
 }
 
-export interface OrderItemCreate extends OrderItemBase {}
+export interface OrderItemCreate {
+  product_id: string;
+  quantity: number;
+}
 
 export interface OrderItemUpdate {
   product_id?: string | null;
@@ -47,8 +50,6 @@ export interface OrderCreate {
   canteen_id: string;
   drop_off_zone_id: string;
   items: [OrderItemCreate, ...OrderItemCreate[]];
-  status?: OrderStatus;
-  total_amount?: Money;
 }
 
 export interface OrderUpdate {

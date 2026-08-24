@@ -4,9 +4,13 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { MainLayout } from '../layouts/MainLayout';
 import { CartPage } from '../pages/CartPage';
+import { CheckoutPage } from '../pages/CheckoutPage';
 import { CanteenPage } from '../pages/CanteenPage';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
+import { OrderSuccessPage } from '../pages/OrderSuccessPage';
+import { PaymentConfirmedPage } from '../pages/PaymentConfirmedPage';
+import { PixPaymentPage } from '../pages/PixPaymentPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { RoleLandingPage } from '../pages/RoleLandingPage';
 
@@ -45,6 +49,34 @@ export const router = createBrowserRouter([
           {
             path: '/carrinho',
             element: <CartPage />,
+          },
+          {
+            path: '/checkout',
+            element: <CheckoutPage />,
+          },
+          {
+            path: '/pedidos/:orderId/sucesso',
+            element: <OrderSuccessPage />,
+          },
+          {
+            path: '/pedidos/:orderId/pagamento-confirmado',
+            element: <PaymentConfirmedPage />,
+          },
+          {
+            path: '/pagamentos/:transactionId/pix',
+            element: <PixPaymentPage />,
+          },
+          {
+            path: '/pedidos',
+            element: <RoleLandingPage title="Meus pedidos" description="Acompanhe seus pedidos em andamento e seu histórico." />,
+          },
+          {
+            path: '/carteira',
+            element: <RoleLandingPage title="Carteira" description="Consulte seu saldo e suas movimentações." />,
+          },
+          {
+            path: '/perfil',
+            element: <RoleLandingPage title="Meu perfil" description="Confira e atualize seus dados pessoais." />,
           },
           {
             path: '/entregas',

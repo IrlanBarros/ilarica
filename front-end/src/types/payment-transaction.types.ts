@@ -1,31 +1,26 @@
 import type { Money } from './api.types';
 
-export type PaymentTransactionStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
+export type PaymentMethod = 'pix' | 'wallet';
+export type PaymentTransactionStatus = 'pending' | 'processing' | 'succeeded' | 'failed' | 'expired';
 
-export interface PaymentTransactionBase {
+export interface PaymentTransaction {
+  id: string;
   order_id: string;
   amount: Money;
-  payment_method: string;
+  payment_method: PaymentMethod;
   status: PaymentTransactionStatus;
   external_reference: string | null;
+  pix_copy_paste: string | null;
+  pix_qr_code: string | null;
+  expires_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  confirmed_at: string | null;
 }
 
-export interface PaymentTransaction extends PaymentTransactionBase {
-  id: string;
-}
-
-export interface PaymentTransactionCreate {
+export interface PaymentIntentCreate {
   order_id: string;
-  amount: Money;
-  payment_method: string;
-  status?: PaymentTransactionStatus;
-  external_reference?: string | null;
+  payment_method: PaymentMethod;
 }
 
-export interface PaymentTransactionUpdate {
-  order_id?: string | null;
-  amount?: Money | null;
-  payment_method?: string | null;
-  status?: PaymentTransactionStatus | null;
-  external_reference?: string | null;
-}
+export type PaymentTransactionCreate = PaymentIntentCreate;
