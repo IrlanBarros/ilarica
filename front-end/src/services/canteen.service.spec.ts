@@ -43,7 +43,6 @@ describe('canteen.service', () => {
       location: 'Campus Juazeiro',
       user_id: 'user-1',
       is_open: true,
-      products: [],
     };
     const contract: Canteen = {
       id: 'canteen-1',
@@ -64,14 +63,18 @@ describe('canteen.service', () => {
   });
 
   it('updates a canteen successfully', async () => {
-    const payload: CanteenUpdate = { is_open: false, products: ['product-1'] };
+    const payload: CanteenUpdate = {
+      name: 'Cantina do Bloco B',
+      location: 'Bloco B - Campus Juazeiro',
+      is_open: false,
+    };
     const contract: Canteen = {
       id: 'canteen-1',
       user_id: 'user-1',
-      name: 'Cantina Central',
-      location: 'Campus Juazeiro',
+      name: 'Cantina do Bloco B',
+      location: 'Bloco B - Campus Juazeiro',
       is_open: false,
-      products: ['product-1'],
+      products: [],
     };
 
     mock.onPatch('/canteens/canteen-1').reply((config) => {

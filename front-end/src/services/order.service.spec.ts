@@ -49,11 +49,8 @@ describe('order.service', () => {
         {
           product_id: 'product-1',
           quantity: 2,
-          unit_price: '12.50',
         },
       ],
-      status: 'draft',
-      total_amount: '25.00',
     };
 
     const contract: Order = {
