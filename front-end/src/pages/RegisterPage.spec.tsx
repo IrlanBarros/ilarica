@@ -26,11 +26,27 @@ describe('RegisterPage', () => {
   it('validates password confirmation in the browser without calling the API', () => {
     render(<MemoryRouter><RegisterPage /></MemoryRouter>);
     fillValidForm();
-    fireEvent.change(screen.getByLabelText(/confirmação de senha/i), { target: { value: 'Different123' } });
-    fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
+    fireEvent.change(screen.getByLabelText(/confirmar senha/i), { target: { value: 'Different123' } });
+    fireEvent.click(screen.getByRole('button', { name: /cadastrar/i }));
 
     expect(screen.getByRole('alert').textContent).toBe('A confirmação de senha deve ser igual à senha.');
     expect(register).not.toHaveBeenCalled();
+  });
+
+  it('sends only the strict API contract fields', async () => {
+    register.mockResolvedValue({
+      id: 'user-1', name: 'Cliente Teste', email: 'cliente@ufca.edu.br',
+      whatsapp: '5588999999999', role: 'customer', is_active: true,
+      is_email_validated: false,
+    });
+    render(<MemoryRouter><RegisterPage /></MemoryRouter>);
+    fillValidForm();
+    fireEvent.click(screen.getByRole('button', { name: /cadastrar/i }));
+
+    await waitFor(() => expect(register).toHaveBeenCalledWith({
+      name: 'Cliente Teste', email: 'cliente@ufca.edu.br', whatsapp: '5588999999999',
+      password: 'Password123', role: 'customer',
+    }));
   });
 
   it.each([
@@ -40,7 +56,7 @@ describe('RegisterPage', () => {
     register.mockRejectedValue(new ApiClientError('API error', status, 'API error'));
     render(<MemoryRouter><RegisterPage /></MemoryRouter>);
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
+    fireEvent.click(screen.getByRole('button', { name: /cadastrar/i }));
 
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(message));
   });

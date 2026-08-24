@@ -21,9 +21,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className={cn('w-full', wrapperClassName)}>
       {label ? (
-        <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-slate-700">
+        <label htmlFor={inputId} className="mb-2 block text-[13px] font-bold text-ilarica-muted">
           {label}
-          {required ? <span className="ml-1 text-red-600">*</span> : null}
         </label>
       ) : null}
 

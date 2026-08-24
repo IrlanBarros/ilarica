@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { normalizeApiError } from '../api/http-error';
+import chevronLeft from '../assets/figma/chevron-left.svg';
 import { Button, Input } from '../components/ui';
 import { useAuthStore } from '../store';
 import type { UserCreate } from '../types';
@@ -33,25 +34,31 @@ export function RegisterPage(): React.JSX.Element {
       const apiError = normalizeApiError(caughtError);
       if (apiError.status === 403) setError('Este tipo de conta não pode ser criado pelo cadastro público.');
       else if (apiError.status === 422) setError('Revise os dados informados. Use um e-mail institucional da UFCA.');
-      else setError(apiError.message);
+      else setError('Não foi possível concluir o cadastro. Verifique sua conexão e tente novamente.');
     }
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-      <Input label="Nome completo" autoComplete="name" value={form.name} onChange={(event) => updateField('name', event.target.value)} required />
-      <Input label="E-mail institucional" type="email" autoComplete="email" value={form.email} onChange={(event) => updateField('email', event.target.value)} required />
-      <Input label="WhatsApp com DDI e DDD" type="tel" autoComplete="tel" value={form.whatsapp} onChange={(event) => updateField('whatsapp', event.target.value)} required />
-      <label className="block text-sm font-medium text-slate-700">Tipo de conta
-        <select className="mt-1.5 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500" value={form.role} onChange={(event) => updateField('role', event.target.value)}>
-          <option value="customer">Cliente</option><option value="courier">Entregador</option>
-        </select>
-      </label>
-      <Input label="Senha" type="password" autoComplete="new-password" value={form.password} onChange={(event) => updateField('password', event.target.value)} required />
-      <Input label="Confirmação de senha" type="password" autoComplete="new-password" value={form.passwordConfirmation} onChange={(event) => updateField('passwordConfirmation', event.target.value)} required />
-      {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p> : null}
-      <Button className="w-full" type="submit" size="lg" isLoading={isLoading} loadingText="Criando conta...">Criar conta</Button>
-      <p className="text-center text-sm text-slate-600">Já possui conta?{' '}<Link className="font-semibold text-orange-600 hover:text-orange-500" to="/login">Entrar</Link></p>
-    </form>
+    <div className="w-full">
+      <header className="flex items-center gap-3">
+        <Link aria-label="Voltar para o login" className="grid size-6 place-items-center" to="/login"><img alt="" className="size-6" src={chevronLeft} /></Link>
+        <h1 className="font-display text-[22px] font-extrabold text-ilarica-ink">Criar Conta</h1>
+      </header>
+
+      <div className="mt-5 flex h-11 rounded-full bg-ilarica-line p-1" role="group" aria-label="Tipo de conta">
+        <button className={`flex-1 rounded-full text-[13px] font-bold transition-colors ${form.role === 'customer' ? 'bg-white text-ilarica-orange' : 'text-ilarica-muted'}`} type="button" aria-pressed={form.role === 'customer'} onClick={() => updateField('role', 'customer')}>Quero ser Cliente</button>
+        <button className={`flex-1 rounded-full text-[13px] font-semibold transition-colors ${form.role === 'courier' ? 'bg-white text-ilarica-orange' : 'text-ilarica-muted'}`} type="button" aria-pressed={form.role === 'courier'} onClick={() => updateField('role', 'courier')}>Ser Entregador</button>
+      </div>
+
+      <form className="mt-5 space-y-4" onSubmit={handleSubmit} noValidate>
+        <Input label="Nome Completo" placeholder="Seu nome completo" autoComplete="name" value={form.name} onChange={(event) => updateField('name', event.target.value)} className="h-11 border-ilarica-line px-4 text-sm focus:border-ilarica-orange focus:ring-ilarica-orange" required />
+        <Input label="E-mail Institucional (.edu.br)" placeholder="seu@aluno.ufca.edu.br" type="email" autoComplete="email" value={form.email} onChange={(event) => updateField('email', event.target.value)} className="h-11 border-ilarica-line px-4 text-sm focus:border-ilarica-orange focus:ring-ilarica-orange" required />
+        <Input label="WhatsApp" placeholder="55 88 99999-9999" type="tel" inputMode="tel" autoComplete="tel" value={form.whatsapp} onChange={(event) => updateField('whatsapp', event.target.value)} className="h-11 border-ilarica-line px-4 text-sm focus:border-ilarica-orange focus:ring-ilarica-orange" required />
+        <Input label="Senha" placeholder="••••••••" type="password" autoComplete="new-password" value={form.password} onChange={(event) => updateField('password', event.target.value)} className="h-11 border-ilarica-line px-4 text-sm focus:border-ilarica-orange focus:ring-ilarica-orange" required />
+        <Input label="Confirmar Senha" placeholder="••••••••" type="password" autoComplete="new-password" value={form.passwordConfirmation} onChange={(event) => updateField('passwordConfirmation', event.target.value)} className="h-11 border-ilarica-line px-4 text-sm focus:border-ilarica-orange focus:ring-ilarica-orange" required />
+        {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{error}</p> : null}
+        <Button className="h-12 w-full rounded-full bg-ilarica-orange text-[15px] hover:bg-[#ed5b2a] focus-visible:ring-ilarica-orange" type="submit" isLoading={isLoading} loadingText="Cadastrando...">Cadastrar</Button>
+      </form>
+    </div>
   );
 }
