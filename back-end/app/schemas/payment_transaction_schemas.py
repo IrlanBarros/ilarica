@@ -29,6 +29,20 @@ class PaymentWebhookUpdate(BaseModel):
     failure_reason: str | None = Field(default=None, max_length=255)
 
 
+class EfiPixNotification(BaseModel):
+    """Minimal webhook hint; all financial fields are ignored in favor of active verification."""
+
+    model_config = ConfigDict(extra="allow")
+    txid: str = Field(..., min_length=26, max_length=35, pattern=r"^[A-Za-z0-9]+$")
+
+
+class EfiPixWebhook(BaseModel):
+    """Efí callback envelope."""
+
+    model_config = ConfigDict(extra="allow")
+    pix: list[EfiPixNotification] = Field(default_factory=list, max_length=100)
+
+
 class PaymentTransactionResponse(BaseModel):
     """Safe payment intent state returned to its owner."""
 

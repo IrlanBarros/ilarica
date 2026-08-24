@@ -9,6 +9,7 @@ from app.database.models import OrderModel, PaymentTransactionModel, UserModel
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.schemas.payment_transaction_schemas import (
+    EfiPixWebhook,
     PaymentIntentCreate,
     PaymentTransactionResponse,
     PaymentWebhookUpdate,
@@ -89,6 +90,30 @@ def list_payment_transactions(
     )
     service = PaymentService(db)
     return [_response(service.refresh_expiration(entry)) for entry in entries]
+
+
+@router.post(
+    "/provider-webhooks/efi/pix",
+    status_code=status.HTTP_202_ACCEPTED,
+    include_in_schema=False,
+)
+def receive_efi_pix_webhook(
+    payload: EfiPixWebhook,
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Treat callbacks as hints and confirm every txid through an active Efí query."""
+    service = PaymentService(db)
+    if service.provider.name != "efi":
+        raise HTTPException(status_code=503, detail="Efí payment provider is not configured")
+    reconciled = 0
+    for notification in payload.pix:
+        try:
+            transaction = service.reconcile_by_reference(notification.txid)
+        except PaymentFlowError as exc:
+            _raise_payment_error(exc)
+        if transaction is not None:
+            reconciled += 1
+    return {"received": len(payload.pix), "reconciled": reconciled}
 
 
 @router.post(

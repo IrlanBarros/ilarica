@@ -52,6 +52,8 @@ nginx/ssl/
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
 
 # OS/editor
 .DS_Store

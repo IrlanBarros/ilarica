@@ -6,7 +6,26 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.database.models import OrderModel, OrderStatus, PaymentTransactionModel, WalletModel
+from app.application.ports.payment_provider import PaymentProvider, PixCharge, PixChargeStatus
 from app.services.payment_service import PaymentFlowError, PaymentService, utc_now
+
+
+class FakePixProvider(PaymentProvider):
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.created_amount: Decimal | None = None
+        self.status = "pending"
+        self.paid_amount: Decimal | None = None
+        self.status_calls = 0
+
+    def create_pix_charge(self, *, reference, amount, expiration_seconds, order_id):
+        self.created_amount = amount
+        return PixCharge(reference=reference, copy_paste="provider-pix-code", expires_at=utc_now() + timedelta(seconds=expiration_seconds))
+
+    def get_pix_charge(self, reference):
+        self.status_calls += 1
+        return PixChargeStatus(reference=reference, status=self.status, paid_amount=self.paid_amount)
 
 
 def _order_and_wallet(db: Session, *, total: str = "18.00", balance: str = "50.00") -> tuple[OrderModel, WalletModel, UUID]:
@@ -128,3 +147,42 @@ def test_pix_webhook_is_authenticated_and_idempotent(db_session: Session, monkey
     assert first.id == replay.id
     assert replay.status == "succeeded"
     assert order.status == OrderStatus.PAID.value
+
+
+def test_external_provider_uses_server_amount_and_reconciles_once(db_session: Session) -> None:
+    order, _, customer_id = _order_and_wallet(db_session, total="18.00")
+    provider = FakePixProvider()
+    service = PaymentService(db_session, provider=provider)
+    transaction = service.create_intent(
+        order_id=str(order.id), payment_method="pix",
+        idempotency_key="external-provider-key-0001", user_id=str(customer_id),
+    )
+    assert provider.created_amount == Decimal("18.00")
+    assert transaction.pix_copy_paste == "provider-pix-code"
+    assert transaction.provider == "fake"
+
+    provider.status = "succeeded"
+    provider.paid_amount = Decimal("18.00")
+    confirmed = service.get_owned(str(transaction.id), str(customer_id))
+    replay = service.get_owned(str(transaction.id), str(customer_id))
+    db_session.refresh(order)
+    assert confirmed.status == replay.status == "succeeded"
+    assert order.status == OrderStatus.PAID.value
+    assert provider.status_calls == 1
+
+
+def test_external_provider_amount_mismatch_never_marks_order_paid(db_session: Session) -> None:
+    order, _, customer_id = _order_and_wallet(db_session, total="18.00")
+    provider = FakePixProvider()
+    service = PaymentService(db_session, provider=provider)
+    transaction = service.create_intent(
+        order_id=str(order.id), payment_method="pix",
+        idempotency_key="external-provider-key-0002", user_id=str(customer_id),
+    )
+    provider.status = "succeeded"
+    provider.paid_amount = Decimal("0.01")
+    result = service.reconcile_by_reference(str(transaction.external_reference))
+    db_session.refresh(order)
+    assert result is not None and result.status == "failed"
+    assert result.failure_reason == "Provider payment amount mismatch"
+    assert order.status != OrderStatus.PAID.value

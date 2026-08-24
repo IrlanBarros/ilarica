@@ -6,8 +6,8 @@ import base64
 import hmac
 import io
 import os
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -16,7 +16,10 @@ import qrcode.image.svg
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.application.ports.payment_provider import PaymentProvider
 from app.database.models import OrderModel, OrderStatus, PaymentTransactionModel, WalletModel
+from app.infrastructure.payments.efi_provider import PaymentProviderError
+from app.infrastructure.payments.provider_factory import get_payment_provider
 
 
 class PaymentFlowError(Exception):
@@ -53,19 +56,16 @@ def build_pix_qr_data_url(payload: str) -> str:
 @dataclass
 class PaymentService:
     db: Session
+    provider: PaymentProvider = field(default_factory=get_payment_provider)
 
-    def _owned_order(self, order_id: str, user_id: str) -> OrderModel:
+    def _owned_order(self, order_id: str, user_id: str, *, lock: bool = True) -> OrderModel:
         try:
             resolved_order_id = UUID(order_id)
         except ValueError as exc:
             raise PaymentFlowError(422, "Invalid order identifier") from exc
 
-        order = (
-            self.db.query(OrderModel)
-            .filter(OrderModel.id == resolved_order_id)
-            .with_for_update()
-            .one_or_none()
-        )
+        query = self.db.query(OrderModel).filter(OrderModel.id == resolved_order_id)
+        order = (query.with_for_update() if lock else query).one_or_none()
         if order is None:
             raise PaymentFlowError(404, "Order not found")
         if str(order.customer_id) != user_id:
@@ -120,16 +120,25 @@ class PaymentService:
             method=payment_method,
             status="pending",
             idempotency_key=normalized_key,
-            external_reference=f"ilarica-{uuid4().hex}",
+            external_reference=uuid4().hex,
+            provider=self.provider.name,
         )
 
         if payment_method == "pix":
             expiration_minutes = int(os.getenv("PIX_EXPIRATION_MINUTES", "15"))
-            transaction.expires_at = utc_now() + timedelta(minutes=expiration_minutes)
-            transaction.pix_copy_paste = (
-                f"ILARICA-SANDBOX|order={order.id}|amount={amount:.2f}|"
-                f"reference={transaction.external_reference}"
-            )
+            try:
+                charge = self.provider.create_pix_charge(
+                    reference=transaction.external_reference,
+                    amount=amount,
+                    expiration_seconds=expiration_minutes * 60,
+                    order_id=str(order.id),
+                )
+            except PaymentProviderError as exc:
+                self.db.rollback()
+                raise PaymentFlowError(502, "Pix provider is temporarily unavailable") from exc
+            transaction.external_reference = charge.reference
+            transaction.expires_at = charge.expires_at
+            transaction.pix_copy_paste = charge.copy_paste
             order.status = OrderStatus.AWAITING_PAYMENT.value
         elif payment_method == "wallet":
             self._charge_wallet(transaction, order, user_id)
@@ -192,8 +201,64 @@ class PaymentService:
         transaction = self.db.get(PaymentTransactionModel, resolved_id)
         if transaction is None:
             raise PaymentFlowError(404, "Payment transaction not found")
-        self._owned_order(str(transaction.order_id), user_id)
+        self._owned_order(str(transaction.order_id), user_id, lock=False)
+        if transaction.status == "pending" and transaction.method == "pix":
+            transaction = self.reconcile_provider(transaction)
         return self.refresh_expiration(transaction)
+
+    def reconcile_provider(self, transaction: PaymentTransactionModel) -> PaymentTransactionModel:
+        """Recover delayed webhooks using an authoritative provider status query."""
+        if transaction.provider != self.provider.name or transaction.status != "pending":
+            return transaction
+        try:
+            remote = self.provider.get_pix_charge(str(transaction.external_reference))
+        except PaymentProviderError:
+            return transaction
+        if remote.status == "pending":
+            return transaction
+
+        locked = (
+            self.db.query(PaymentTransactionModel)
+            .filter(PaymentTransactionModel.id == transaction.id)
+            .with_for_update()
+            .one()
+        )
+        if locked.status != "pending":
+            return locked
+        order = (
+            self.db.query(OrderModel)
+            .filter(OrderModel.id == locked.order_id)
+            .with_for_update()
+            .one()
+        )
+        expected = Decimal(str(locked.amount)).quantize(Decimal("0.01"))
+        if remote.status == "succeeded" and remote.paid_amount == expected:
+            locked.status = "succeeded"
+            locked.failure_reason = None
+            locked.confirmed_at = utc_now()
+            order.status = OrderStatus.PAID.value
+        elif remote.status == "succeeded":
+            locked.status = "failed"
+            locked.failure_reason = "Provider payment amount mismatch"
+        else:
+            locked.status = "failed"
+            locked.failure_reason = "Payment was declined by provider"
+        self.db.commit()
+        self.db.refresh(locked)
+        return locked
+
+    def reconcile_by_reference(self, reference: str) -> PaymentTransactionModel | None:
+        """Process a webhook hint only after querying the provider directly."""
+        transaction = (
+            self.db.query(PaymentTransactionModel)
+            .filter(PaymentTransactionModel.external_reference == reference)
+            .one_or_none()
+        )
+        if transaction is None:
+            return None
+        if transaction.provider != self.provider.name:
+            raise PaymentFlowError(409, "Payment provider does not match transaction")
+        return self.refresh_expiration(self.reconcile_provider(transaction))
 
     def refresh_expiration(self, transaction: PaymentTransactionModel) -> PaymentTransactionModel:
         if transaction.status == "pending" and is_expired(transaction):
@@ -231,6 +296,8 @@ class PaymentService:
             raise PaymentFlowError(404, "Payment transaction not found")
         if transaction.method != "pix":
             raise PaymentFlowError(409, "Only Pix intents may be confirmed by the provider")
+        if transaction.provider != "internal":
+            raise PaymentFlowError(409, "External Pix payments require authoritative provider reconciliation")
         if transaction.status == "succeeded":
             return transaction
         if is_expired(transaction):

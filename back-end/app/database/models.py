@@ -365,6 +365,7 @@ class PaymentTransactionModel(Base):
     amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     method: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
+    provider: Mapped[str] = mapped_column(String(30), nullable=False, default="internal")
     external_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
     pix_copy_paste: Mapped[str | None] = mapped_column(Text, nullable=True)
