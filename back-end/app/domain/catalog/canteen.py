@@ -12,10 +12,31 @@ class Canteen:
     """Aggregate root representing a campus canteen."""
 
     id: str
+    user_id: str
     name: str
+    location: str
     is_open: bool = False
-    location: str = ""
     products: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Normalize and validate the persisted canteen identity."""
+        self.name = self.name.strip()
+        self.location = self.location.strip()
+        if len(self.name) < 2:
+            raise ValueError("Canteen name must contain at least 2 characters.")
+        if len(self.location) < 2:
+            raise ValueError("Canteen location must contain at least 2 characters.")
+
+    def update_profile(self, *, name: str | None = None, location: str | None = None) -> None:
+        """Update identifying fields without allowing blank persisted values."""
+        next_name = self.name if name is None else name.strip()
+        next_location = self.location if location is None else location.strip()
+        if len(next_name) < 2:
+            raise ValueError("Canteen name must contain at least 2 characters.")
+        if len(next_location) < 2:
+            raise ValueError("Canteen location must contain at least 2 characters.")
+        self.name = next_name
+        self.location = next_location
 
     def openOperation(self) -> bool:
         """Open the canteen for a service operation."""

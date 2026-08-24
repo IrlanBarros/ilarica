@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.database.models import OrderModel, ProductModel
+from app.database.models import CanteenModel, DropOffZoneModel, OrderModel, ProductModel, UserModel
 from app.database.session import get_db
+from app.dependencies.auth import get_current_user
 from app.domain.order.order import Order
 from app.domain.order.order_item import OrderItem
 from app.repositories.sqlalchemy_repositories import (
@@ -31,34 +32,83 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
     responses={
         201: {"description": "Order created successfully."},
         400: {"description": "Invalid order payload."},
+        401: {"description": "Authentication required."},
+        403: {"description": "The customer does not match the authenticated user."},
         404: {"description": "A referenced product was not found."},
+        409: {"description": "Canteen, product or drop-off zone unavailable."},
     },
 )
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)) -> OrderResponse:
+def create_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> OrderResponse:
     """Create a new order with one or more items."""
+    if payload.customer_id != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="The order customer must match the authenticated user")
+
+    try:
+        canteen_uuid = UUID(payload.canteen_id)
+        zone_uuid = UUID(payload.drop_off_zone_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid UUID in order payload") from exc
+
+    canteen = db.get(CanteenModel, canteen_uuid)
+    if canteen is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Canteen not found")
+    if not canteen.is_open:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected canteen is currently unavailable")
+
+    zone = db.get(DropOffZoneModel, zone_uuid)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Drop-off zone not found")
+    if not zone.is_active:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected drop-off zone is unavailable")
+    current_zone_load = db.query(OrderModel).filter(OrderModel.drop_off_zone_id == zone.id, OrderModel.status != "completed").count()
+    if current_zone_load >= zone.capacity:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected drop-off zone is at capacity")
+
     service = OrderService(SQLAlchemyOrderRepository(db), SQLAlchemyProductRepository(db), SQLAlchemyWalletRepository(db))
     order_items: list[OrderItem] = []
     for item in payload.items:
-        product = db.get(ProductModel, item.product_id)
+        try:
+            product_uuid = UUID(item.product_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid product UUID") from exc
+        product = db.get(ProductModel, product_uuid)
         if product is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Product '{item.product_id}' not found",
             )
+        if str(product.canteen_id) != payload.canteen_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="All products must belong to the selected canteen")
+        if not product.is_active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Product '{product.name}' is unavailable")
         order_items.append(
             OrderItem(
                 product_id=item.product_id,
                 product_name=product.name,
                 quantity=item.quantity,
-                unit_price=Decimal(str(item.unit_price)),
+                unit_price=Decimal(str(product.price)),
             )
         )
 
     total = sum((item.calculateSubtotal() for item in order_items), Decimal("0"))
-    order = Order(id=str(uuid4()), user_id=payload.customer_id, items=order_items, status="draft", is_paid=False)
+    order = Order(
+        id=str(uuid4()),
+        user_id=payload.customer_id,
+        canteen_id=payload.canteen_id,
+        drop_off_zone_id=payload.drop_off_zone_id,
+        items=order_items,
+        status="draft",
+        is_paid=False,
+    )
     try:
         saved = service.create_order(order)
+        db.commit()
     except ValueError as exc:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return OrderResponse(

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.application.ports.repositories import (
     IDeliveryRideRepository,
+    ICanteenRepository,
     IInvitationKeyRepository,
     IOrderRepository,
     IProductRepository,
@@ -24,8 +25,10 @@ from app.application.ports.repositories import (
 )
 from app.database.models import (
     DeliveryRideModel,
+    CanteenModel,
     InvitationKeyModel,
     OrderModel,
+    OrderItemModel,
     OrderStatus,
     ProductModel,
     WalletModel,
@@ -34,9 +37,11 @@ from app.database.models import (
 from app.domain.access_identity.invitation_key import InvitationKey
 from app.domain.access_identity.user import User
 from app.domain.catalog.product import Product
+from app.domain.catalog.canteen import Canteen
 from app.domain.financial.wallet import Wallet
 from app.domain.logistics.delivery_ride import DeliveryRide
 from app.domain.order.order import Order
+from app.domain.order.order_item import OrderItem
 
 
 def _to_domain_user(model: UserModel) -> User:
@@ -63,11 +68,30 @@ def _to_domain_product(model: ProductModel) -> Product:
     )
 
 
+def _to_domain_canteen(model: CanteenModel) -> Canteen:
+    return Canteen(
+        id=str(model.id),
+        user_id=str(model.user_id),
+        name=model.name,
+        location=model.location,
+        is_open=model.is_open,
+        products=[str(product.id) for product in model.products],
+    )
+
+
 def _to_domain_order(model: OrderModel) -> Order:
     return Order(
         id=str(model.id),
         user_id=str(model.customer_id),
-        items=[],
+        items=[
+            OrderItem(
+                product_id=str(item.product_id),
+                product_name=item.product.name,
+                quantity=item.quantity,
+                unit_price=Decimal(str(item.unit_price)),
+            )
+            for item in model.items
+        ],
         status=str(model.status),
         is_paid=str(model.status) in {Order.STATUS_PAID, Order.STATUS_IN_TRANSIT, Order.STATUS_READY_FOR_PICKUP, Order.STATUS_COMPLETED},
         pickup_pin=model.pickup_pin,
@@ -208,22 +232,59 @@ class SQLAlchemyProductRepository(IProductRepository):
         return [_to_domain_product(m) for m in models]
 
 
+class SQLAlchemyCanteenRepository(ICanteenRepository):
+    """Concrete canteen repository backed by SQLAlchemy."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(self, canteen: Canteen) -> Canteen:
+        model = CanteenModel(
+            id=UUID(canteen.id),
+            user_id=UUID(canteen.user_id),
+            name=canteen.name,
+            location=canteen.location,
+            is_open=canteen.is_open,
+        )
+        self.session.add(model)
+        self.session.flush()
+        return _to_domain_canteen(model)
+
+    def save(self, canteen: Canteen) -> Canteen:
+        model = self.session.get(CanteenModel, UUID(canteen.id))
+        if model is None:
+            raise ValueError("The canteen does not exist.")
+        model.name = canteen.name
+        model.location = canteen.location
+        model.is_open = canteen.is_open
+        self.session.flush()
+        return _to_domain_canteen(model)
+
+    def get_by_id(self, canteen_id: str) -> Canteen | None:
+        model = self.session.get(CanteenModel, UUID(canteen_id))
+        return _to_domain_canteen(model) if model is not None else None
+
+    def list_all(self) -> list[Canteen]:
+        models = self.session.query(CanteenModel).order_by(CanteenModel.name.asc()).all()
+        return [_to_domain_canteen(model) for model in models]
+
+
 class SQLAlchemyOrderRepository(IOrderRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
     def get_by_id(self, order_id: str) -> Optional[Order]:
-        model = self.session.get(OrderModel, order_id)
+        model = self.session.get(OrderModel, UUID(order_id))
         return _to_domain_order(model) if model is not None else None
 
     def save(self, order: Order) -> Order:
         model = self.session.get(OrderModel, order.id)
         if model is None:
             model = OrderModel(
-                id=order.id,
-                customer_id=order.user_id,
-                canteen_id=order.canteen_id,
-                drop_off_zone_id=order.drop_off_zone_id,
+                id=UUID(order.id),
+                customer_id=UUID(order.user_id),
+                canteen_id=UUID(order.canteen_id),
+                drop_off_zone_id=UUID(order.drop_off_zone_id),
                 status=OrderStatus(order.status),
                 total_amount=float(order.total_with_delivery()),
                 pickup_pin=order.pickup_pin,
@@ -238,13 +299,21 @@ class SQLAlchemyOrderRepository(IOrderRepository):
 
     def add(self, order: Order) -> Order:
         model = OrderModel(
-            id=order.id,
-            customer_id=order.user_id,
-            canteen_id=order.canteen_id,
-            drop_off_zone_id=order.drop_off_zone_id,
+            id=UUID(order.id),
+            customer_id=UUID(order.user_id),
+            canteen_id=UUID(order.canteen_id),
+            drop_off_zone_id=UUID(order.drop_off_zone_id),
             status=OrderStatus(order.status),
             total_amount=float(order.total_with_delivery()),
             pickup_pin=order.pickup_pin,
+            items=[
+                OrderItemModel(
+                    product_id=UUID(item.product_id),
+                    unit_price=item.unit_price,
+                    quantity=item.quantity,
+                )
+                for item in order.items
+            ],
         )
         self.session.add(model)
         self.session.flush()
@@ -326,6 +395,7 @@ __all__ = [
     "SQLAlchemyUserRepository",
     "SQLAlchemyInvitationKeyRepository",
     "SQLAlchemyProductRepository",
+    "SQLAlchemyCanteenRepository",
     "SQLAlchemyOrderRepository",
     "SQLAlchemyDeliveryRideRepository",
     "SQLAlchemyWalletRepository",

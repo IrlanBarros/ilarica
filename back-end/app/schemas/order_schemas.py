@@ -23,8 +23,12 @@ class OrderItemBase(BaseModel):
         return value
 
 
-class OrderItemCreate(OrderItemBase):
-    """Order item creation data."""
+class OrderItemCreate(BaseModel):
+    """Client-provided item data; prices are resolved by the server."""
+
+    model_config = ConfigDict(extra="forbid")
+    product_id: str = Field(..., min_length=1)
+    quantity: int = Field(..., gt=0)
 
 
 class OrderItemUpdate(BaseModel):
@@ -52,9 +56,13 @@ class OrderBase(BaseModel):
     total_amount: Decimal = Field(default=Decimal("0.00"), ge=0)
 
 
-class OrderCreate(OrderBase):
+class OrderCreate(BaseModel):
     """Required attributes to create an order."""
 
+    model_config = ConfigDict(extra="forbid")
+    customer_id: str = Field(..., min_length=1)
+    canteen_id: str = Field(..., min_length=1)
+    drop_off_zone_id: str = Field(..., min_length=1)
     items: List[OrderItemCreate] = Field(..., min_length=1)
 
 

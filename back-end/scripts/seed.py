@@ -52,7 +52,7 @@ def create_base_users_and_wallets(session) -> tuple[list[UserModel], list[UserMo
             user = UserModel(
                 id=uuid4(),
                 name=fake.name(),
-                email=fake.unique.email(),
+                email=f"cliente{index + 1}@aluno.ufca.edu.br",
                 whatsapp=f"558899990{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
                 role_type="customer",
@@ -66,7 +66,7 @@ def create_base_users_and_wallets(session) -> tuple[list[UserModel], list[UserMo
             user = UserModel(
                 id=uuid4(),
                 name=fake.name(),
-                email=fake.unique.email(),
+                email=f"entregador{index + 1}@ufca.edu.br",
                 whatsapp=f"558899991{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
                 role_type="courier",
@@ -100,12 +100,18 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
     canteens: list[CanteenModel] = []
 
     try:
+        canteen_definitions = [
+            ("Doces da Júlia", "Centro de Convivência", "Julia Andrade", "julia@docesilarica.com"),
+            ("Cantina do Bloco B", "Bloco B - Campus Juazeiro", "Marcos Lima", "marcos@cantinab.com"),
+            ("Marmitas da Tia Cleide", "Próximo à Biblioteca Central", "Cleide Sousa", "cleide@marmitas.com"),
+            ("Pastelaria do CA", "Centro Acadêmico", "Ana Ribeiro", "ana@pastelariadoca.com"),
+        ]
         owners: list[UserModel] = []
-        for index in range(3):
+        for index, (_, _, owner_name, owner_email) in enumerate(canteen_definitions):
             owner = UserModel(
                 id=uuid4(),
-                name=fake.name(),
-                email=fake.unique.email(),
+                name=owner_name,
+                email=owner_email,
                 whatsapp=f"558899992{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
                 role_type="canteen_staff",
@@ -116,10 +122,12 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
 
         session.flush()
 
-        for owner in owners:
+        for owner, (canteen_name, location, _, _) in zip(owners, canteen_definitions, strict=True):
             canteen = CanteenModel(
                 id=uuid4(),
                 user_id=owner.id,
+                name=canteen_name,
+                location=location,
                 is_open=True,
             )
             session.add(canteen)
@@ -140,28 +148,36 @@ def create_products_for_canteens(session, canteens: list[CanteenModel]) -> list[
     created_products: list[ProductModel] = []
 
     try:
-        product_templates = [
-            ("Coxinha", "snack", 8.50),
-            ("Pastel de Queijo", "snack", 9.00),
-            ("Pão de Queijo", "snack", 6.00),
-            ("Suco de Laranja", "drink", 6.50),
-            ("Refrigerante Lata", "drink", 7.00),
-            ("Água Mineral", "drink", 4.50),
-            ("Arroz com Feijão", "meal", 18.00),
-            ("Frango Grelhado", "meal", 22.50),
-            ("Salada Tropical", "meal", 16.00),
-        ]
+        product_templates = {
+            "Doces da Júlia": [
+                ("Brownie de chocolate", "Brownie artesanal com chocolate meio amargo", 8.50),
+                ("Bolo de pote", "Bolo cremoso em camadas", 10.00),
+                ("Brigadeiro", "Brigadeiro tradicional", 3.50),
+            ],
+            "Cantina do Bloco B": [
+                ("Coxinha de frango", "Coxinha crocante com recheio de frango", 8.00),
+                ("Pão de queijo", "Pão de queijo assado no dia", 6.00),
+                ("Suco de laranja", "Suco natural de laranja", 6.50),
+            ],
+            "Marmitas da Tia Cleide": [
+                ("Marmita de frango", "Arroz, feijão, frango grelhado e salada", 22.00),
+                ("Marmita de carne", "Arroz, feijão, carne acebolada e salada", 24.00),
+                ("Salada tropical", "Folhas, legumes e frutas da estação", 16.00),
+            ],
+            "Pastelaria do CA": [
+                ("Pastel de queijo", "Pastel crocante recheado com queijo", 9.00),
+                ("Pastel de carne", "Pastel crocante recheado com carne", 10.00),
+                ("Caldo de cana", "Caldo de cana gelado", 6.00),
+            ],
+        }
 
         for canteen in canteens:
-            for product_name, category, base_price in product_templates:
+            for product_name, description, base_price in product_templates[canteen.name]:
                 product = ProductModel(
                     id=uuid4(),
                     canteen_id=canteen.id,
                     name=product_name,
-                    description=(
-                        f"{category.capitalize()} preparado com ingredientes frescos. "
-                        f"Imagem de referência: {fake.image_url(width=800, height=600)}"
-                    ),
+                    description=description,
                     price=float(base_price + random.uniform(-0.5, 2.5)),
                     is_fast_stock_enabled=random.choice([True, False]),
                     is_active=True,
@@ -214,7 +230,8 @@ def create_orders(session, customer_users: list[UserModel], canteens: list[Cante
             customer = random.choice(customer_users)
             canteen = random.choice(canteens)
             zone = random.choice(zones)
-            chosen_products = random.sample(products, k=random.randint(2, 4))
+            canteen_products = [product for product in products if product.canteen_id == canteen.id]
+            chosen_products = random.sample(canteen_products, k=random.randint(1, 3))
             status = order_statuses[index % len(order_statuses)]
 
             order = OrderModel(

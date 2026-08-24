@@ -1,61 +1,51 @@
-"""Pydantic schemas for payment transactions."""
+"""Public contracts for secure payment intents."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
+
+PaymentMethod = Literal["pix", "wallet"]
+PaymentStatus = Literal["pending", "processing", "succeeded", "failed", "expired"]
 
 
-class PaymentTransactionBase(BaseModel):
-    """Common payment transaction attributes."""
+class PaymentIntentCreate(BaseModel):
+    """Only payment intent data the authenticated customer may choose."""
 
+    model_config = ConfigDict(extra="forbid")
     order_id: str = Field(..., min_length=1)
-    amount: Decimal = Field(..., gt=0)
-    payment_method: str = Field(..., min_length=2, max_length=50)
-    status: str = Field(default="pending", min_length=2, max_length=30)
-    external_reference: Optional[str] = None
-
-    @field_validator("amount")
-    @classmethod
-    def validate_amount(cls, value: Decimal) -> Decimal:
-        if value <= 0:
-            raise ValueError("amount must be greater than zero")
-        return value
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, value: str) -> str:
-        allowed = {"pending", "processing", "succeeded", "failed"}
-        normalized = value.strip().lower()
-        if normalized not in allowed:
-            raise ValueError("status must be one of: pending, processing, succeeded, failed")
-        return normalized
+    payment_method: PaymentMethod
 
 
-class PaymentTransactionCreate(PaymentTransactionBase):
-    """Attributes required to create a payment transaction."""
+class PaymentWebhookUpdate(BaseModel):
+    """Provider-only payment result payload."""
+
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["succeeded", "failed"]
+    external_reference: str | None = Field(default=None, max_length=255)
+    failure_reason: str | None = Field(default=None, max_length=255)
 
 
-class PaymentTransactionUpdate(BaseModel):
-    """Optional attributes for partial updates."""
-
-    order_id: Optional[str] = Field(default=None, min_length=1)
-    amount: Optional[Decimal] = Field(default=None, gt=0)
-    payment_method: Optional[str] = Field(default=None, min_length=2, max_length=50)
-    status: Optional[str] = Field(default=None, min_length=2, max_length=30)
-    external_reference: Optional[str] = None
-
-
-class PaymentTransactionResponse(PaymentTransactionBase):
-    """Payment transaction output schema."""
+class PaymentTransactionResponse(BaseModel):
+    """Safe payment intent state returned to its owner."""
 
     id: str
+    order_id: str
+    amount: Decimal
+    payment_method: PaymentMethod
+    status: PaymentStatus
+    external_reference: str | None = None
+    pix_copy_paste: str | None = None
+    pix_qr_code: str | None = None
+    expires_at: datetime | None = None
+    failure_reason: str | None = None
+    created_at: datetime
+    confirmed_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
-SchemaBase = PaymentTransactionBase
-SchemaCreate = PaymentTransactionCreate
-SchemaUpdate = PaymentTransactionUpdate
-SchemaResponse = PaymentTransactionResponse
+# Compatibility alias for internal imports while the public contract remains intent-only.
+PaymentTransactionCreate = PaymentIntentCreate

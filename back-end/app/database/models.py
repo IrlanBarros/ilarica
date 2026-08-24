@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -111,6 +111,8 @@ class CanteenModel(Base):
         nullable=False,
         index=True,
     )
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    location: Mapped[str] = mapped_column(String(200), nullable=False)
     is_open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     user: Mapped[UserModel] = relationship(back_populates="canteens")
@@ -342,6 +344,10 @@ class PaymentTransactionModel(Base):
     """SQLAlchemy model for financial payment processing."""
 
     __tablename__ = "payment_transactions"
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_payment_transactions_order_id"),
+        UniqueConstraint("idempotency_key", name="uq_payment_transactions_idempotency_key"),
+    )
 
     id: Mapped[str] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -360,6 +366,12 @@ class PaymentTransactionModel(Base):
     method: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
     external_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    pix_copy_paste: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     order: Mapped[OrderModel] = relationship(back_populates="payment_transaction")
 

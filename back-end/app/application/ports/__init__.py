@@ -2,6 +2,7 @@
 
 from app.application.ports.repositories import (
     IDeliveryRideRepository,
+    ICanteenRepository,
     IDropOffZoneRepository,
     IInvitationKeyRepository,
     INotificationService,
@@ -14,6 +15,7 @@ from app.application.ports.repositories import (
 
 __all__ = [
     "IUserRepository",
+    "ICanteenRepository",
     "IInvitationKeyRepository",
     "IProductRepository",
     "IDropOffZoneRepository",

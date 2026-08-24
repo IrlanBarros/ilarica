@@ -6,9 +6,10 @@ from app.schemas.drop_off_zone_schemas import DropOffZoneCreate, DropOffZoneResp
 from app.schemas.invitation_key_schemas import InvitationKeyCreate, InvitationKeyResponse, InvitationKeyUpdate
 from app.schemas.order_schemas import OrderCreate, OrderItemCreate, OrderItemResponse, OrderResponse, OrderUpdate
 from app.schemas.payment_transaction_schemas import (
+    PaymentIntentCreate,
     PaymentTransactionCreate,
     PaymentTransactionResponse,
-    PaymentTransactionUpdate,
+    PaymentWebhookUpdate,
 )
 from app.schemas.product_schemas import ProductCreate, ProductResponse, ProductUpdate
 from app.schemas.transport_kit_schemas import TransportKitCreate, TransportKitResponse, TransportKitUpdate
@@ -40,7 +41,8 @@ __all__ = [
     "DeliveryRideUpdate",
     "DeliveryRideResponse",
     "PaymentTransactionCreate",
-    "PaymentTransactionUpdate",
+    "PaymentIntentCreate",
+    "PaymentWebhookUpdate",
     "PaymentTransactionResponse",
     "TransportKitCreate",
     "TransportKitUpdate",
