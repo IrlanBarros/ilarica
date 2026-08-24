@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Iterable
+from uuid import UUID
 
 from app.domain.access_identity.invitation_key import InvitationKey
 from app.domain.access_identity.user import User
@@ -19,7 +20,7 @@ class IUserRepository(ABC):
     """Persistence port for users."""
 
     @abstractmethod
-    def get_by_id(self, user_id: str) -> User | None:
+    def get_by_id(self, user_id: UUID) -> User | None:
         """Return a user by its identifier."""
 
     @abstractmethod
@@ -47,7 +48,7 @@ class IInvitationKeyRepository(ABC):
         """Persist a key object."""
 
     @abstractmethod
-    def consume(self, invitation_key: InvitationKey, user_id: str) -> InvitationKey:
+    def consume(self, invitation_key: InvitationKey, user_id: UUID) -> InvitationKey:
         """Mark the invitation key as used by the given user."""
 
 

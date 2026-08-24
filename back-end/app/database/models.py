@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -29,18 +29,20 @@ class UserModel(Base):
 
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(
-        String(150),
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         primary_key=True,
         unique=True,
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
+    whatsapp: Mapped[str] = mapped_column(String(15), nullable=False)
     # store a hashed password for authentication
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     role_type: Mapped[str] = mapped_column(String(50), nullable=False, default="customer")
     is_email_validated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -79,8 +81,8 @@ class InvitationKeyModel(Base):
 
     __tablename__ = "invitation_keys"
 
-    id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
@@ -97,14 +99,14 @@ class CanteenModel(Base):
     __tablename__ = "canteens"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
-    user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -129,14 +131,14 @@ class ProductModel(Base):
     __tablename__ = "products"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
     canteen_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("canteens.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -160,7 +162,7 @@ class DropOffZoneModel(Base):
     __tablename__ = "drop_off_zones"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
@@ -184,26 +186,26 @@ class OrderModel(Base):
     __tablename__ = "orders"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
-    customer_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+    customer_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=False,
         index=True,
     )
     canteen_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("canteens.id", ondelete="SET NULL"),
         nullable=False,
         index=True,
     )
     drop_off_zone_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("drop_off_zones.id", ondelete="SET NULL"),
         nullable=False,
         index=True,
@@ -250,20 +252,20 @@ class OrderItemModel(Base):
     __tablename__ = "order_items"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
     order_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("orders.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     product_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("products.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
@@ -281,21 +283,21 @@ class DeliveryRideModel(Base):
     __tablename__ = "delivery_rides"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
     order_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("orders.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True,
     )
-    courier_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=True),
+    courier_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -315,14 +317,14 @@ class TransportKitModel(Base):
     __tablename__ = "transport_kits"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
-    courier_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=True),
+    courier_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -342,14 +344,14 @@ class PaymentTransactionModel(Base):
     __tablename__ = "payment_transactions"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
     order_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("orders.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -368,14 +370,14 @@ class WalletModel(Base):
     __tablename__ = "wallets"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
-    user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
@@ -392,14 +394,14 @@ class RewardPointModel(Base):
     __tablename__ = "reward_points"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
         unique=True,
         nullable=False,
     )
-    user_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

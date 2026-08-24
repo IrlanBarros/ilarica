@@ -48,11 +48,12 @@ def create_base_users_and_wallets(session) -> tuple[list[UserModel], list[UserMo
 
     try:
         # 5 customers
-        for _ in range(5):
+        for index in range(5):
             user = UserModel(
                 id=uuid4(),
                 name=fake.name(),
                 email=fake.unique.email(),
+                whatsapp=f"558899990{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
                 role_type="customer",
                 is_email_validated=True,
@@ -61,13 +62,14 @@ def create_base_users_and_wallets(session) -> tuple[list[UserModel], list[UserMo
             customers.append(user)
 
         # 3 delivery personnel
-        for _ in range(3):
+        for index in range(3):
             user = UserModel(
                 id=uuid4(),
                 name=fake.name(),
                 email=fake.unique.email(),
+                whatsapp=f"558899991{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
-                role_type="delivery_personnel",
+                role_type="courier",
                 is_email_validated=True,
             )
             session.add(user)
@@ -99,13 +101,14 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
 
     try:
         owners: list[UserModel] = []
-        for _ in range(3):
+        for index in range(3):
             owner = UserModel(
                 id=uuid4(),
                 name=fake.name(),
                 email=fake.unique.email(),
+                whatsapp=f"558899992{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
-                role_type="canteen_owner",
+                role_type="canteen_staff",
                 is_email_validated=True,
             )
             session.add(owner)

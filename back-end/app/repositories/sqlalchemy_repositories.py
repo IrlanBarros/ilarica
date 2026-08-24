@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Iterable, List, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
@@ -41,11 +41,14 @@ from app.domain.order.order import Order
 
 def _to_domain_user(model: UserModel) -> User:
     return User(
-        id=str(model.id),
+        id=model.id,
+        name=model.name,
         email=model.email,
+        whatsapp=model.whatsapp,
         password_hash=getattr(model, "password_hash", ""),
         role=getattr(model, "role_type", "customer"),
-        is_active=True,
+        is_active=model.is_active,
+        is_email_validated=model.is_email_validated,
     )
 
 
@@ -84,7 +87,7 @@ class SQLAlchemyUserRepository(IUserRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_by_id(self, user_id: str) -> Optional[User]:
+    def get_by_id(self, user_id: UUID) -> Optional[User]:
         model = self.session.get(UserModel, user_id)
         return _to_domain_user(model) if model is not None else None
 
@@ -95,17 +98,37 @@ class SQLAlchemyUserRepository(IUserRepository):
     def save(self, user: User) -> User:
         model = self.session.get(UserModel, user.id)
         if model is None:
-            model = UserModel(id=user.id, name=user.email.split("@")[0], email=user.email, password_hash=user.password_hash, role_type=user.role)
+            model = UserModel(
+                id=user.id,
+                name=user.name,
+                email=user.email,
+                whatsapp=user.whatsapp,
+                password_hash=user.password_hash,
+                role_type=user.role,
+                is_active=user.is_active,
+                is_email_validated=user.is_email_validated,
+            )
             self.session.add(model)
         else:
+            model.name = user.name
             model.email = user.email
+            model.whatsapp = user.whatsapp
             model.password_hash = user.password_hash
             model.role_type = user.role
         self.session.flush()
         return _to_domain_user(model)
 
     def add(self, user: User) -> User:
-        model = UserModel(id=user.id, name=user.email.split("@")[0], email=user.email, password_hash=user.password_hash, role_type=user.role)
+        model = UserModel(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            whatsapp=user.whatsapp,
+            password_hash=user.password_hash,
+            role_type=user.role,
+            is_active=user.is_active,
+            is_email_validated=user.is_email_validated,
+        )
         self.session.add(model)
         self.session.flush()
         return _to_domain_user(model)
@@ -144,7 +167,7 @@ class SQLAlchemyInvitationKeyRepository(IInvitationKeyRepository):
         self.session.flush()
         return invitation_key
 
-    def consume(self, invitation_key: InvitationKey, user_id: str) -> InvitationKey:
+    def consume(self, invitation_key: InvitationKey, user_id: UUID) -> InvitationKey:
         invitation_key.consume(user_id)
         return self.save(invitation_key)
 
@@ -268,7 +291,7 @@ class SQLAlchemyDeliveryRideRepository(IDeliveryRideRepository):
             self.session.add(model)
         else:
             model.order_id = ride.order_id
-            model.courier_id = ride.assigned_courier_id
+            model.courier_id = UUID(ride.assigned_courier_id) if ride.assigned_courier_id else None
             model.status = ride.status
         self.session.flush()
         return ride

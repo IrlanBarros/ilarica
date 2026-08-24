@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 from typing import Generator
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -58,8 +59,10 @@ def override_get_db() -> Generator:
 def mock_current_user() -> User:
     """Return a deterministic authenticated user for protected route tests."""
     return User(
-        id="test-auth-user",
+        id=UUID("00000000-0000-0000-0000-000000000001"),
+        name="QA Auth",
         email="qa-auth@ufca.edu.br",
+        whatsapp="5588999999999",
         password_hash=get_password_hash("Secret123"),
         role="admin",
         is_active=True,

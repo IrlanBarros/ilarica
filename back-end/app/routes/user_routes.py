@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,23 +13,25 @@ from app.database.models import UserModel
 from app.repositories.sqlalchemy_repositories import SQLAlchemyInvitationKeyRepository, SQLAlchemyUserRepository
 from app.schemas.user_schemas import UserCreate, UserResponse, UserUpdate
 from app.services.user_service import UserService
+from app.domain.access_identity.user import User
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-def _to_user_response(user: Any) -> UserResponse:
+def _to_user_response(user: User | UserModel) -> UserResponse:
     """Map an authenticated or persisted user object into the public schema."""
     email = str(user.email)
-    resolved_name = getattr(user, "name", email.split("@")[0])
+    resolved_name = user.name
     resolved_role = getattr(user, "role", getattr(user, "role_type", "customer"))
-    resolved_is_active = bool(getattr(user, "is_active", True))
 
     return UserResponse(
-        id=str(user.id),
-        name=str(resolved_name),
+        id=user.id,
+        name=resolved_name,
         email=email,
+        whatsapp=user.whatsapp,
         role=str(resolved_role),
-        is_active=resolved_is_active,
+        is_active=user.is_active,
+        is_email_validated=user.is_email_validated,
     )
 
 
@@ -45,13 +47,30 @@ def _to_user_response(user: Any) -> UserResponse:
 )
 def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> UserResponse:
     """Create a new user in the platform."""
+    if payload.role not in {"customer", "courier"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Public registration only allows customer or courier roles",
+        )
+
     service = UserService(SQLAlchemyUserRepository(db), SQLAlchemyInvitationKeyRepository(db))
     try:
-        user = service.register(payload.email, payload.password, role=payload.role)
+        user = service.register(
+            name=payload.name,
+            email=payload.email,
+            whatsapp=payload.whatsapp,
+            password=payload.password,
+            role=payload.role,
+        )
+        db.commit()
     except ValueError as exc:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
 
-    return UserResponse(id=user.id, name=payload.name, email=user.email, role=user.role, is_active=user.is_active)
+    return _to_user_response(user)
 
 
 @router.get(
@@ -88,7 +107,7 @@ def get_current_user_profile(current_user: UserModel = Depends(get_current_user)
     },
     dependencies=[Depends(get_current_user)],
 )
-def get_user(user_id: str, db: Session = Depends(get_db)) -> UserResponse:
+def get_user(user_id: UUID, db: Session = Depends(get_db)) -> UserResponse:
     """Get a single user by ID."""
     user = db.get(UserModel, user_id)
     if user is None:
@@ -108,7 +127,7 @@ def get_user(user_id: str, db: Session = Depends(get_db)) -> UserResponse:
     },
     dependencies=[Depends(get_current_user)],
 )
-def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)) -> UserResponse:
+def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db)) -> UserResponse:
     """Update user fields using a partial payload."""
     user = db.get(UserModel, user_id)
     if user is None:
@@ -121,6 +140,8 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
                 setattr(user, "email", value)
             elif key == "name":
                 setattr(user, "name", value)
+            elif key == "whatsapp":
+                setattr(user, "whatsapp", value)
             elif key == "role":
                 setattr(user, "role_type", value)
     except ValueError as exc:
@@ -141,7 +162,7 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
     },
     dependencies=[Depends(get_current_user)],
 )
-def delete_user(user_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+def delete_user(user_id: UUID, db: Session = Depends(get_db)) -> dict[str, str]:
     """Delete a user by ID."""
     user = db.get(UserModel, user_id)
     if user is None:

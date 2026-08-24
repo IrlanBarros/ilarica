@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from typing import Optional
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
@@ -15,6 +16,7 @@ class UserBase(BaseModel):
 
     name: str = Field(..., min_length=2, max_length=150)
     email: str
+    whatsapp: str
     role: str = Field(default="customer", min_length=2, max_length=50)
 
     @field_validator("email")
@@ -34,6 +36,14 @@ class UserBase(BaseModel):
             raise ValueError("Role must be one of: customer, courier, canteen_staff, admin")
         return normalized
 
+    @field_validator("whatsapp")
+    @classmethod
+    def normalize_whatsapp(cls, value: str) -> str:
+        normalized = re.sub(r"\D", "", value)
+        if not 12 <= len(normalized) <= 15:
+            raise ValueError("WhatsApp must include DDI and DDD and contain 12 to 15 digits")
+        return normalized
+
 
 class UserCreate(UserBase):
     """Attributes required to create a user."""
@@ -51,12 +61,23 @@ class UserCreate(UserBase):
             raise ValueError("Password must contain at least one number")
         return value
 
+    @model_validator(mode="after")
+    def validate_institutional_email_for_public_roles(self) -> "UserCreate":
+        if self.role in {"customer", "courier"} and not self.email.endswith(
+            ("@aluno.ufca.edu.br", "@ufca.edu.br")
+        ):
+            raise ValueError(
+                "Customer and courier accounts require an @aluno.ufca.edu.br or @ufca.edu.br email"
+            )
+        return self
+
 
 class UserUpdate(BaseModel):
     """Optional attributes for partial user updates."""
 
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     email: Optional[str] = None
+    whatsapp: Optional[str] = None
     role: Optional[str] = Field(default=None, min_length=2, max_length=50)
 
     @field_validator("email")
@@ -80,12 +101,23 @@ class UserUpdate(BaseModel):
             raise ValueError("Role must be one of: customer, courier, canteen_staff, admin")
         return normalized
 
+    @field_validator("whatsapp")
+    @classmethod
+    def normalize_whatsapp(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = re.sub(r"\D", "", value)
+        if not 12 <= len(normalized) <= 15:
+            raise ValueError("WhatsApp must include DDI and DDD and contain 12 to 15 digits")
+        return normalized
+
 
 class UserResponse(UserBase):
     """User output schema."""
 
-    id: str
-    is_active: bool = True
+    id: UUID
+    is_active: bool
+    is_email_validated: bool
     model_config = ConfigDict(from_attributes=True)
 
 

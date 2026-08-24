@@ -7,6 +7,7 @@ when necessary.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from app.application.ports.repositories import IInvitationKeyRepository, IUserRepository
 from app.domain.access_identity.user import User
@@ -25,7 +26,15 @@ class UserService:
     user_repo: IUserRepository
     invitation_repo: IInvitationKeyRepository
 
-    def register(self, email: str, password: str, role: str = "customer", invitation_key: str | None = None) -> User:
+    def register(
+        self,
+        name: str,
+        email: str,
+        whatsapp: str,
+        password: str,
+        role: str = "customer",
+        invitation_key: str | None = None,
+    ) -> User:
         """Register a new user using validation rules and persistence.
 
         This method delegates the heavy lifting to the existing
@@ -35,9 +44,16 @@ class UserService:
         from app.application.use_cases.register_user import RegisterUserUseCase
 
         use_case = RegisterUserUseCase(self.user_repo, self.invitation_repo)
-        return use_case.execute(email=email, password=password, role=role, invitation_key_value=invitation_key)
+        return use_case.execute(
+            name=name,
+            email=email,
+            whatsapp=whatsapp,
+            password=password,
+            role=role,
+            invitation_key_value=invitation_key,
+        )
 
-    def change_role(self, user_id: str, new_role: str) -> User:
+    def change_role(self, user_id: UUID, new_role: str) -> User:
         user = self.user_repo.get_by_id(user_id)
         if user is None:
             raise ValueError("User not found")

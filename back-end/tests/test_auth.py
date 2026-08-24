@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -17,9 +18,10 @@ from main import app
 def test_login_success_returns_token(client: TestClient, db_session: Session):
     """Should return access token when credentials are valid."""
     user = UserModel(
-        id="auth-user-success",
+        id=uuid4(),
         name="Auth User",
         email="auth.success@ufca.edu.br",
+        whatsapp="5588999999999",
         password_hash=get_password_hash("Secret123"),
         role_type="customer",
     )
@@ -51,9 +53,10 @@ def test_login_with_unregistered_email_returns_401(client: TestClient):
 def test_login_with_wrong_password_returns_401(client: TestClient, db_session: Session):
     """Should reject login when password is invalid."""
     user = UserModel(
-        id="auth-user-invalid-password",
+        id=uuid4(),
         name="Invalid Password User",
         email="auth.wrongpass@ufca.edu.br",
+        whatsapp="5588999999998",
         password_hash=get_password_hash("Secret123"),
         role_type="customer",
     )
