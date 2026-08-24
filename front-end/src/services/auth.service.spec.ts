@@ -74,6 +74,7 @@ describe('auth.service', () => {
     const payload: UserCreate = {
       name: 'Test User',
       email: 'testuser@ufca.edu.br',
+      whatsapp: '5588999999999',
       password: 'Secret123',
       role: 'customer',
     };
@@ -82,8 +83,10 @@ describe('auth.service', () => {
       id: 'user-1',
       name: 'Test User',
       email: 'testuser@ufca.edu.br',
+      whatsapp: '5588999999999',
       role: 'customer',
       is_active: true,
+      is_email_validated: false,
     };
 
     mock.onPost('/users/').reply((config) => {
@@ -104,8 +107,9 @@ describe('auth.service', () => {
       register({
         name: 'Broken User',
         email: 'broken@ufca.edu.br',
+        whatsapp: '5588999999998',
         password: 'Secret123',
-        role: 'admin',
+        role: 'courier',
       }),
     ).rejects.toMatchObject({
       status: 400,

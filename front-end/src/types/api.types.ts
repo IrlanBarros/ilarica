@@ -1,5 +1,7 @@
 export type EntityId = string;
 
+export type UUID = string;
+
 export type Money = string;
 
 export type ApiErrorDetail = string | ValidationErrorDetail[];

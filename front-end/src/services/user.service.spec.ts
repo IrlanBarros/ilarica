@@ -27,8 +27,10 @@ describe('user.service', () => {
       id: 'test-auth-user',
       name: 'qa-auth',
       email: 'qa-auth@ufca.edu.br',
+      whatsapp: '5588999999999',
       role: 'admin',
       is_active: true,
+      is_email_validated: true,
     };
 
     mock.onGet('/users/me').reply(200, contract);
