@@ -6,10 +6,18 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint (Ruff)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     defaults:
       run:
@@ -45,6 +53,7 @@ jobs:
   type-check:
     name: Type check (mypy)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     defaults:
       run:
@@ -78,8 +87,9 @@ jobs:
           mypy app
 
   tests:
-    name: Tests (pytest)
+    name: Migrations and tests (pytest)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - lint
       - type-check
@@ -114,9 +124,10 @@ jobs:
       DB_USER: ilarica_admin
       DB_PASSWORD: ilarica_pass
       DB_NAME: ilarica_db
-      SECRET_KEY: ci-test-secret-key
+      SECRET_KEY: ci-only-secret-key-not-used-outside-github-actions
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      ENVIRONMENT: test
 
     steps:
       - name: Check out repository
@@ -135,15 +146,59 @@ jobs:
           pip install -r requirements.txt
           pip install pytest-cov httpx
 
+      - name: Apply and verify Alembic migrations
+        run: |
+          alembic upgrade head
+          test "$(alembic heads | awk '{print $1}')" = "$(alembic current | awk '{print $1}')"
+
       - name: Run integration tests with pytest
         run: |
           pytest -q --maxfail=1 --disable-warnings \
             --cov=app --cov-report=term-missing --cov-report=xml --junitxml=pytest-report.xml
 
       - name: Upload test and coverage artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-artifacts
+          if-no-files-found: ignore
           path: |
             back-end/coverage.xml
             back-end/pytest-report.xml
+
+  frontend:
+    name: Frontend (Vitest, lint and build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./front-end
+
+    env:
+      VITE_API_URL: http://localhost:8000
+      VITE_SUPPORT_EMAIL: suporte-ci@example.invalid
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test:run
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build
