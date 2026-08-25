@@ -16,3 +16,28 @@ export interface BusinessHoursEntry {
   closesAt: string;
   isOpen: boolean;
 }
+
+export type SellerOrderStage = 'new' | 'preparing' | 'ready';
+
+export interface SellerOrderLine {
+  productId: string;
+  name: string;
+  quantity: number;
+}
+
+/**
+ * View model expected from a future canteen-scoped orders endpoint.
+ * IDs remain UUID strings and financial values remain server-provided strings.
+ */
+export interface SellerOrder {
+  id: string;
+  displayCode: string;
+  customerName: string;
+  createdAt: string;
+  fulfillment: 'pickup' | 'delivery';
+  destination: string;
+  items: SellerOrderLine[];
+  totalAmount: string;
+  stage: SellerOrderStage;
+  notes?: string;
+}

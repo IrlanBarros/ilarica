@@ -6,7 +6,7 @@ describe('getRoleHome', () => {
   it.each([
     ['customer', '/'],
     ['courier', '/entregas'],
-    ['canteen_staff', '/vendedor/cardapio'],
+    ['canteen_staff', '/vendedor/pedidos'],
     ['admin', '/admin'],
   ] as const)('maps %s to %s', (role, destination) => {
     expect(getRoleHome(role)).toBe(destination);

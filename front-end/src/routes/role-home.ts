@@ -3,7 +3,7 @@ import type { UserRole } from '../types';
 const ROLE_HOME: Record<UserRole, string> = {
   customer: '/',
   courier: '/entregas',
-  canteen_staff: '/vendedor/cardapio',
+  canteen_staff: '/vendedor/pedidos',
   admin: '/admin',
 };
 

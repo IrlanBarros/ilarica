@@ -14,6 +14,7 @@ import { PaymentConfirmedPage } from '../pages/PaymentConfirmedPage';
 import { PixPaymentPage } from '../pages/PixPaymentPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { RoleLandingPage } from '../pages/RoleLandingPage';
+import { SellerOrdersPage } from '../pages/SellerOrdersPage';
 
 export const router = createBrowserRouter([
   {
@@ -86,6 +87,10 @@ export const router = createBrowserRouter([
           {
             path: '/vendedor/cardapio',
             element: <CanteenDashboardPage />,
+          },
+          {
+            path: '/vendedor/pedidos',
+            element: <SellerOrdersPage />,
           },
           {
             path: '/admin',
