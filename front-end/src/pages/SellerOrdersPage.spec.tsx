@@ -26,6 +26,7 @@ const orders: SellerOrder[] = [
 describe('SellerOrdersPage', () => {
   beforeEach(() => useSellerStore.setState({
     orders,
+    orderHistory: [],
     orderStage: 'new',
     isOrdersLoading: false,
     ordersError: null,
@@ -43,6 +44,14 @@ describe('SellerOrdersPage', () => {
     expect(screen.getByText('Pedido #40810000')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: /Em preparo/ }));
     expect(screen.getByText('Pedido #40790000')).toBeTruthy();
+    expect(screen.queryByText('Pedido #40810000')).toBeNull();
+  });
+
+  it('shows only completed orders in the history tab', () => {
+    useSellerStore.setState({ orderHistory: [{ ...orders[0], id: '40990000-0000-4000-8000-000000000001', status: 'completed' }] });
+    render(<MemoryRouter><SellerOrdersPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('tab', { name: /Histórico/ }));
+    expect(screen.getByText('Pedido #40990000')).toBeTruthy();
     expect(screen.queryByText('Pedido #40810000')).toBeNull();
   });
 

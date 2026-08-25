@@ -53,6 +53,27 @@ def test_seller_orders_are_isolated_by_authenticated_canteen(client: TestClient,
     assert payload[0]["total_amount"] == "16.00"
 
 
+def test_seller_history_contains_only_completed_orders_from_authenticated_canteen(client: TestClient, db_session: Session) -> None:
+    staff_a, _, order_a, order_b = _seller_catalog(db_session)
+    completed_a = OrderModel(
+        id=uuid4(), customer_id=order_a.customer_id, canteen_id=order_a.canteen_id,
+        drop_off_zone_id=order_a.drop_off_zone_id, status="completed", total_amount="8.00",
+    )
+    completed_b = OrderModel(
+        id=uuid4(), customer_id=order_b.customer_id, canteen_id=order_b.canteen_id,
+        drop_off_zone_id=order_b.drop_off_zone_id, status="completed", total_amount="9.00",
+    )
+    db_session.add_all([completed_a, completed_b])
+    db_session.commit()
+    app.dependency_overrides[get_current_user] = lambda: staff_a
+
+    response = client.get("/canteens/me/orders/history")
+
+    assert response.status_code == 200
+    assert [entry["id"] for entry in response.json()] == [str(completed_a.id)]
+    assert response.json()[0]["status"] == "completed"
+
+
 def test_seller_cannot_read_or_update_another_canteen_order(client: TestClient, db_session: Session) -> None:
     staff_a, _, _, order_b = _seller_catalog(db_session)
     app.dependency_overrides[get_current_user] = lambda: staff_a

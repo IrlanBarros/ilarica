@@ -6,6 +6,11 @@ export async function listSellerOrders(): Promise<SellerOrder[]> {
   return response.data;
 }
 
+export async function listSellerOrderHistory(): Promise<SellerOrder[]> {
+  const response = await apiClient.get<SellerOrder[]>('/canteens/me/orders/history');
+  return response.data;
+}
+
 export async function confirmSellerOrderPickup(orderId: string, pickupPin: string): Promise<SellerPickupConfirmationResponse> {
   const response = await apiClient.post<SellerPickupConfirmationResponse>(`/canteens/me/orders/${orderId}/pickup/confirm`, { pickup_pin: pickupPin });
   return response.data;

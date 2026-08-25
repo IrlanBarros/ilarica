@@ -17,8 +17,8 @@ export interface BusinessHoursEntry {
   isOpen: boolean;
 }
 
-export type SellerOrderStatus = 'paid' | 'preparing' | 'ready_for_pickup';
-export type SellerOrderStage = 'new' | 'preparing' | 'ready';
+export type SellerOrderStatus = 'paid' | 'preparing' | 'ready_for_pickup' | 'completed';
+export type SellerOrderStage = 'new' | 'preparing' | 'ready' | 'history';
 
 export interface SellerOrderCustomer {
   id: string;

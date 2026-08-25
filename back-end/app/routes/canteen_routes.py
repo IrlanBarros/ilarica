@@ -197,6 +197,20 @@ def list_my_canteen_orders(
     return [_seller_order_response(order) for order in orders]
 
 
+@router.get("/me/orders/history", response_model=list[SellerOrderResponse], summary="List authenticated canteen order history")
+def list_my_canteen_order_history(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> list[SellerOrderResponse]:
+    """Return only completed orders owned by the authenticated staff canteen."""
+    canteen = _owned_canteen(db, current_user)
+    orders = _seller_order_query(db).filter(
+        OrderModel.canteen_id == canteen.id,
+        OrderModel.status == OrderStatus.COMPLETED.value,
+    ).order_by(OrderModel.id.desc()).all()
+    return [_seller_order_response(order) for order in orders]
+
+
 @router.patch(
     "/me/orders/{order_id}/status",
     response_model=SellerOrderResponse,

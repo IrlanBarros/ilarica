@@ -154,7 +154,7 @@ class SellerOrderResponse(BaseModel):
 
     id: UUID
     canteen_id: UUID
-    status: Literal["paid", "preparing", "ready_for_pickup"]
+    status: Literal["paid", "preparing", "ready_for_pickup", "completed"]
     items: List[SellerOrderItemResponse]
     total_amount: Decimal = Field(..., ge=0)
     customer: SellerOrderCustomerResponse

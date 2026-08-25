@@ -2,7 +2,7 @@ import MockAdapter from 'axios-mock-adapter';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { apiClient } from '../api';
-import { listSellerOrders, updateSellerOrderStatus } from './seller-order.service';
+import { listSellerOrderHistory, listSellerOrders, updateSellerOrderStatus } from './seller-order.service';
 
 const mock = new MockAdapter(apiClient);
 
@@ -12,6 +12,11 @@ describe('seller order service', () => {
   it('uses the authenticated canteen-scoped collection', async () => {
     mock.onGet('/canteens/me/orders').reply(200, []);
     await expect(listSellerOrders()).resolves.toEqual([]);
+  });
+
+  it('uses the authenticated canteen-scoped completed history', async () => {
+    mock.onGet('/canteens/me/orders/history').reply(200, []);
+    await expect(listSellerOrderHistory()).resolves.toEqual([]);
   });
 
   it('sends only the explicit next status', async () => {
