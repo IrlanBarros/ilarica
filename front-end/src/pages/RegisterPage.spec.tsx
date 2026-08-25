@@ -13,6 +13,7 @@ function fillValidForm(): void {
   const [password, passwordConfirmation] = screen.getAllByLabelText(/senha/i);
   fireEvent.change(password, { target: { value: 'Password123' } });
   fireEvent.change(passwordConfirmation, { target: { value: 'Password123' } });
+  fireEvent.click(screen.getByRole('checkbox'));
 }
 
 describe('RegisterPage', () => {
@@ -29,7 +30,21 @@ describe('RegisterPage', () => {
     fireEvent.change(screen.getByLabelText(/confirmar senha/i), { target: { value: 'Different123' } });
     fireEvent.click(screen.getByRole('button', { name: /cadastrar/i }));
 
-    expect(screen.getByRole('alert').textContent).toBe('A confirmação de senha deve ser igual à senha.');
+    expect(screen.getByRole('alert').textContent).toBe('A confirmação deve ser igual à senha.');
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it('mirrors password and WhatsApp rules before submitting', () => {
+    render(<MemoryRouter><RegisterPage /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(/nome completo/i), { target: { value: 'Cliente Teste' } });
+    fireEvent.change(screen.getByLabelText(/e-mail institucional/i), { target: { value: 'cliente@ufca.edu.br' } });
+    fireEvent.change(screen.getByLabelText(/whatsapp/i), { target: { value: '8899999' } });
+    const [password, confirmation] = screen.getAllByLabelText(/senha/i);
+    fireEvent.change(password, { target: { value: 'senhafraca' } });
+    fireEvent.change(confirmation, { target: { value: 'senhafraca' } });
+    fireEvent.click(screen.getByRole('button', { name: /cadastrar/i }));
+    expect(screen.getByText(/celular válido com DDD/)).toBeTruthy();
+    expect(screen.getByText(/letra maiúscula e um número/)).toBeTruthy();
     expect(register).not.toHaveBeenCalled();
   });
 

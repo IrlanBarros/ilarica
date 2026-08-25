@@ -30,10 +30,11 @@ describe('CanteenDashboardPage', () => {
     expect(screen.getByRole('switch', { name: 'Alterar disponibilidade de Coxinha de Frango' }).getAttribute('aria-checked')).not.toBe(previous);
   });
 
-  it('keeps future seller sections visible without inventing their interface', () => {
+  it('links to the implemented seller operational sections', () => {
     render(<MemoryRouter><CanteenDashboardPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Pedidos Recebidos' }));
-    expect(screen.getByText(/será implementada na próxima etapa visual/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Pedidos Recebidos' }).getAttribute('href')).toBe('/vendedor/pedidos');
+    expect(screen.getByRole('link', { name: 'Horários' }).getAttribute('href')).toBe('/vendedor/horarios');
+    expect(screen.getByRole('link', { name: 'Configurações' }).getAttribute('href')).toBe('/vendedor/configuracoes');
   });
 
   it('requires confirmation before deleting a product', async () => {

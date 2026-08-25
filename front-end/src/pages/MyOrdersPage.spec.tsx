@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import MockAdapter from 'axios-mock-adapter';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { apiClient } from '../api';
@@ -15,7 +16,7 @@ describe('MyOrdersPage', () => {
       items: [{ id: 'item-1', product_id: 'product-1', name: 'Coxinha', quantity: 2, unit_price: '7.50' }],
       total_amount: '15.00', destination: null, canteen: { id: 'canteen-1', name: 'Cantina Central', location: 'Bloco H' }, pickup_pin: '4821',
     }]);
-    render(<MyOrdersPage />);
+    render(<MemoryRouter><MyOrdersPage /></MemoryRouter>);
     expect(await screen.findByText('Cantina Central')).toBeTruthy();
     expect(screen.getByText('Pronto para retirada')).toBeTruthy();
     expect(screen.getByText('4821')).toBeTruthy();
@@ -23,7 +24,7 @@ describe('MyOrdersPage', () => {
 
   it('renders an empty state when the customer has no orders', async () => {
     mock.onGet('/orders/me').reply(200, []);
-    render(<MyOrdersPage />);
-    expect(await screen.findByText('Você ainda não fez nenhum pedido.')).toBeTruthy();
+    render(<MemoryRouter><MyOrdersPage /></MemoryRouter>);
+    expect(await screen.findByText('Você ainda não fez nenhum pedido')).toBeTruthy();
   });
 });

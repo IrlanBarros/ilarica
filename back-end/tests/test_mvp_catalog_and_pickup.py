@@ -53,6 +53,6 @@ def test_pickup_order_needs_no_drop_off_zone_and_is_visible_only_to_customer(cli
     assert client.get("/orders/me").json() == []
 
 
-def test_delivery_still_requires_a_zone(client: TestClient, db_session: Session) -> None:
+def test_non_customer_is_rejected_before_creating_delivery_order(client: TestClient, db_session: Session) -> None:
     response = client.post("/orders/", json={"customer_id": str(uuid4()), "canteen_id": str(uuid4()), "fulfillment_type": "delivery", "items": [{"product_id": str(uuid4()), "quantity": 1}]})
-    assert response.status_code == 422
+    assert response.status_code == 403

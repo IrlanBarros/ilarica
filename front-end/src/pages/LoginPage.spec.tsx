@@ -42,6 +42,8 @@ describe('LoginPage', () => {
   it('shows an invalid credentials message for 401', async () => {
     login.mockRejectedValue(new ApiClientError('Unauthorized', 401, 'Unauthorized'));
     renderLogin();
+    fireEvent.change(screen.getByLabelText(/e-mail institucional/i), { target: { value: 'cliente@ufca.edu.br' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'Password123' } });
     fireEvent.click(screen.getByRole('button', { name: /entrar/i }));
 
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('E-mail ou senha incorretos.'));

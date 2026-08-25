@@ -81,7 +81,7 @@ describe('CheckoutPage', () => {
     renderCheckout();
     await screen.findByRole('option', { name: 'Bloco C' });
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar e Pagar' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('Product is unavailable');
+    expect((await screen.findByRole('alert')).textContent).toContain('não está mais disponível');
     expect(useCartStore.getState().items).toHaveLength(1);
   });
 
@@ -91,5 +91,14 @@ describe('CheckoutPage', () => {
     renderCheckout();
     await waitFor(() => expect(screen.getByText('Nenhum ponto está disponível no momento.')).toBeTruthy());
     expect((screen.getByRole('button', { name: 'Confirmar e Pagar' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('allows pickup checkout without a delivery zone', async () => {
+    mock.resetHandlers();
+    mock.onGet('/drop-off-zones/').reply(200, []);
+    renderCheckout();
+    await waitFor(() => expect(screen.getByText('Nenhum ponto está disponível no momento.')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Retirada presencial/ }));
+    expect((screen.getByRole('button', { name: 'Confirmar e Pagar' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
