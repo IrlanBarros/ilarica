@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,7 +13,7 @@ from app.database.models import ProductModel, UserModel
 from app.database.session import get_db
 from app.dependencies.auth import require_admin
 from app.repositories.sqlalchemy_repositories import SQLAlchemyProductRepository
-from app.schemas.product_schemas import ProductCreate, ProductResponse, ProductUpdate
+from app.schemas.product_schemas import ProductCategory, ProductCreate, ProductResponse, ProductUpdate
 from app.services.product_service import ProductService
 from app.domain.catalog.product import Product
 
@@ -38,11 +39,12 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db), _: Use
         name=payload.name,
         price=Decimal(str(payload.price)),
         is_active=payload.is_active,
-        stock_quantity=0,
+        stock_quantity=payload.stock_quantity,
         is_fast_stock_enabled=False,
         canteen_id=payload.canteen_id,
         description=payload.description,
         image_url=payload.image_url,
+        category=payload.category,
     )
 
     try:
@@ -59,6 +61,8 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db), _: Use
         is_active=saved.is_active,
         canteen_id=payload.canteen_id,
         is_fast_stock_enabled=saved.is_fast_stock_enabled,
+        category=cast(ProductCategory, saved.category),
+        stock_quantity=saved.stock_quantity,
     )
 
 
@@ -80,6 +84,8 @@ def list_products(db: Session = Depends(get_db)) -> list[ProductResponse]:
             is_active=product.is_active,
             canteen_id=str(product.canteen_id),
             is_fast_stock_enabled=product.is_fast_stock_enabled,
+            category=cast(ProductCategory, product.category),
+            stock_quantity=product.stock_quantity,
         )
         for product in products
     ]
@@ -106,6 +112,8 @@ def get_product(product_id: str, db: Session = Depends(get_db)) -> ProductRespon
         is_active=product.is_active,
         canteen_id=str(product.canteen_id),
         is_fast_stock_enabled=product.is_fast_stock_enabled,
+        category=cast(ProductCategory, product.category),
+        stock_quantity=product.stock_quantity,
     )
 
 
@@ -137,6 +145,8 @@ def update_product(product_id: str, payload: ProductUpdate, db: Session = Depend
         is_active=product.is_active,
         canteen_id=str(product.canteen_id),
         is_fast_stock_enabled=product.is_fast_stock_enabled,
+        category=cast(ProductCategory, product.category),
+        stock_quantity=product.stock_quantity,
     )
 
 

@@ -184,8 +184,15 @@ def create_products_for_canteens(session, canteens: list[CanteenModel]) -> list[
                     name=product_name,
                     description=description,
                     image_url=f"https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80&item={len(created_products)}",
+                    category=(
+                        "bebidas" if any(word in product_name.lower() for word in ("suco", "caldo"))
+                        else "doces" if any(word in product_name.lower() for word in ("brownie", "bolo", "brigadeiro"))
+                        else "refeicoes" if any(word in product_name.lower() for word in ("marmita", "salada"))
+                        else "salgados"
+                    ),
                     price=float(base_price + random.uniform(-0.5, 2.5)),
-                    is_fast_stock_enabled=random.choice([True, False]),
+                    stock_quantity=random.randint(12, 40),
+                    is_fast_stock_enabled=True,
                     is_active=True,
                 )
                 session.add(product)

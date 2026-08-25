@@ -7,6 +7,8 @@ export interface SellerMenuItem {
   price: string;
   imageUrl: string;
   isAvailable: boolean;
+  category: import('./product.types').ProductCategory;
+  stockQuantity: number;
 }
 
 export interface BusinessHoursEntry {

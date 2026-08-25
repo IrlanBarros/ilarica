@@ -11,6 +11,8 @@ const product: Product = {
   price: '6.50',
   is_active: true,
   is_fast_stock_enabled: false,
+  category: 'salgados',
+  stock_quantity: 20,
 };
 
 describe('useCartStore', () => {

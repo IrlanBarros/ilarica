@@ -1,11 +1,15 @@
 import type { Money } from './api.types';
 
+export type ProductCategory = 'salgados' | 'bebidas' | 'refeicoes' | 'doces' | 'outros';
+
 export interface ProductBase {
   name: string;
   description: string | null;
   price: Money;
   is_active: boolean;
   image_url?: string | null;
+  category: ProductCategory;
+  stock_quantity: number;
 }
 
 export interface Product extends ProductBase {
@@ -21,6 +25,8 @@ export interface ProductCreate {
   description?: string | null;
   is_active?: boolean;
   image_url?: string | null;
+  category?: ProductCategory;
+  stock_quantity?: number;
 }
 
 export interface ProductUpdate {
@@ -29,4 +35,6 @@ export interface ProductUpdate {
   price?: Money | null;
   is_active?: boolean | null;
   image_url?: string | null;
+  category?: ProductCategory | null;
+  stock_quantity?: number | null;
 }

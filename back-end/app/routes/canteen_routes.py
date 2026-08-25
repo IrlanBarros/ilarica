@@ -29,7 +29,7 @@ from app.schemas.canteen_schemas import (
     CanteenResponse,
     CanteenUpdate,
 )
-from app.schemas.product_schemas import ProductBase, ProductResponse, ProductUpdate
+from app.schemas.product_schemas import ProductBase, ProductCategory, ProductResponse, ProductUpdate
 from app.schemas.order_schemas import (
     SellerOrderCustomerResponse,
     SellerOrderDestinationResponse,
@@ -97,7 +97,8 @@ def _product_response(product: ProductModel) -> ProductResponse:
     return ProductResponse(
         id=str(product.id), canteen_id=str(product.canteen_id), name=product.name,
         description=product.description, image_url=product.image_url,
-        price=Decimal(str(product.price)),
+        category=cast(ProductCategory, product.category), price=Decimal(str(product.price)),
+        stock_quantity=product.stock_quantity,
         is_active=product.is_active, is_fast_stock_enabled=product.is_fast_stock_enabled,
     )
 

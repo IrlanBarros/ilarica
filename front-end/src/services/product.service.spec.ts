@@ -28,6 +28,8 @@ describe('product.service', () => {
         is_active: true,
         canteen_id: 'canteen-1',
         is_fast_stock_enabled: false,
+        category: 'outros',
+        stock_quantity: 20,
       },
     ];
 
@@ -56,6 +58,8 @@ describe('product.service', () => {
       is_active: true,
       canteen_id: 'canteen-1',
       is_fast_stock_enabled: false,
+      category: 'bebidas',
+      stock_quantity: 20,
     };
 
     mock.onPost('/products/').reply((config) => {
@@ -83,6 +87,8 @@ describe('product.service', () => {
       is_active: true,
       canteen_id: 'canteen-1',
       is_fast_stock_enabled: false,
+      category: 'bebidas',
+      stock_quantity: 18,
     };
 
     mock.onPatch('/products/product-2').reply((config) => {

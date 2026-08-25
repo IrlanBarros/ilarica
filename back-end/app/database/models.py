@@ -165,7 +165,9 @@ class ProductModel(Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, default="outros")
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    stock_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_fast_stock_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 

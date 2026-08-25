@@ -13,6 +13,8 @@ const items: CartItem[] = [
       price: '6.5',
       is_active: true,
       is_fast_stock_enabled: false,
+      category: 'salgados',
+      stock_quantity: 20,
     },
     quantity: 2,
   },

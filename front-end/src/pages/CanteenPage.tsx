@@ -10,6 +10,14 @@ import { listProducts } from '../services/product.service';
 import { useCartStore } from '../store';
 import type { Canteen, Product } from '../types';
 
+const categoryLabels: Record<Product['category'], string> = {
+  salgados: 'Salgados',
+  bebidas: 'Bebidas',
+  refeicoes: 'Refeições',
+  doces: 'Doces',
+  outros: 'Outros',
+};
+
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -49,6 +57,9 @@ export function CanteenPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Product['category'] | 'todos'>('todos');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   const loadCanteen = useCallback(async (): Promise<void> => {
     if (!id) {
@@ -81,12 +92,22 @@ export function CanteenPage(): React.JSX.Element {
     [cartCanteenId, id, items],
   );
   const itemCount = currentCartItems.reduce((total, item) => total + item.quantity, 0);
+  const availableCategories = useMemo(
+    () => Array.from(new Set(products.map((product) => product.category))),
+    [products],
+  );
+  const visibleProducts = useMemo(
+    () => selectedCategory === 'todos' ? products : products.filter((product) => product.category === selectedCategory),
+    [products, selectedCategory],
+  );
 
-  function handleAddItem(product: Product): void {
+  function handleAddItem(product: Product, quantity = 1): void {
     setFeedback(null);
     try {
-      addItem(product);
-      setFeedback(`${product.name} adicionado ao carrinho.`);
+      addItem(product, quantity);
+      setFeedback(`${quantity}x ${product.name} adicionado ao carrinho.`);
+      setSelectedProduct(null);
+      setSelectedQuantity(1);
     } catch {
       setFeedback('Seu carrinho contém itens de outra cantina. Esvazie-o antes de continuar.');
       setUnavailableReason('Para evitar pedidos divididos, o carrinho aceita produtos de apenas uma cantina por vez. Esvazie o carrinho atual para trocar de cantina.');
@@ -144,6 +165,8 @@ export function CanteenPage(): React.JSX.Element {
             Opções de Hoje
           </h2>
 
+          {availableCategories.length > 1 && <nav aria-label="Filtrar cardápio por categoria" className="mt-4 flex gap-2 overflow-x-auto pb-1"><button type="button" aria-pressed={selectedCategory === 'todos'} onClick={() => setSelectedCategory('todos')} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-bold transition ${selectedCategory === 'todos' ? 'bg-ilarica-orange text-white' : 'border border-ilarica-line bg-white text-ilarica-muted'}`}>Todos</button>{availableCategories.map((category) => <button key={category} type="button" aria-pressed={selectedCategory === category} onClick={() => setSelectedCategory(category)} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-bold transition ${selectedCategory === category ? 'bg-ilarica-orange text-white' : 'border border-ilarica-line bg-white text-ilarica-muted'}`}>{categoryLabels[category]}</button>)}</nav>}
+
           {feedback && (
             <p
               role="status"
@@ -157,7 +180,7 @@ export function CanteenPage(): React.JSX.Element {
             </p>
           )}
 
-          {products.length === 0 ? (
+          {visibleProducts.length === 0 ? (
             <div className="mt-3 rounded-2xl border border-dashed border-[#dcd8ce] bg-white p-8 text-center">
               <p className="font-bold">Nenhuma opção disponível hoje</p>
               <p className="mt-1 text-sm text-ilarica-muted">Consulte novamente mais tarde.</p>
@@ -165,12 +188,14 @@ export function CanteenPage(): React.JSX.Element {
             </div>
           ) : (
             <div className="mt-2 grid gap-3 md:grid-cols-2">
-              {products.map((product) => (
+              {visibleProducts.map((product) => (
                 <article
                   key={product.id}
-                  className="flex min-h-[106px] items-center gap-3 rounded-2xl border border-ilarica-line bg-white p-3.5"
+                  className="flex min-h-[106px] cursor-pointer items-center gap-3 rounded-2xl border border-ilarica-line bg-white p-3.5 transition hover:border-ilarica-orange focus-within:border-ilarica-orange"
+                  onClick={() => { setSelectedProduct(product); setSelectedQuantity(1); }}
                 >
                   <div className="min-w-0 flex-1">
+                    <span className="mb-1 inline-flex rounded-full bg-[#fff0e8] px-2 py-0.5 text-[10px] font-bold uppercase text-ilarica-orange">{categoryLabels[product.category]}</span>
                     <h3 className="font-display text-[15px] font-extrabold leading-tight">{product.name}</h3>
                     {product.description && (
                       <p className="mt-1 line-clamp-2 text-xs leading-[1.35] text-ilarica-muted">
@@ -178,12 +203,13 @@ export function CanteenPage(): React.JSX.Element {
                       </p>
                     )}
                     <p className="mt-1 font-bold text-[15px] text-ilarica-orange">{formatMoney(product.price)}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-ilarica-muted">{product.stock_quantity} unidades disponíveis</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleAddItem(product)}
-                    disabled={!canteen.is_open}
-                    aria-label={`Adicionar ${product.name} ao carrinho`}
+                    onClick={(event) => { event.stopPropagation(); setSelectedProduct(product); setSelectedQuantity(1); }}
+                    disabled={!canteen.is_open || product.stock_quantity === 0}
+                    aria-label={`Ver detalhes de ${product.name}`}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ilarica-orange transition hover:bg-[#ed5925] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ilarica-orange disabled:cursor-not-allowed disabled:bg-[#c9c5bc]"
                   >
                     <img src={plusIcon} alt="" className="h-4 w-4" />
@@ -216,6 +242,7 @@ export function CanteenPage(): React.JSX.Element {
         </aside>
       )}
       {unavailableReason && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setUnavailableReason(null); }}><section role="alertdialog" aria-modal="true" aria-labelledby="unavailable-title" className="w-full max-w-md rounded-2xl bg-white p-6"><h2 id="unavailable-title" className="font-display text-xl font-extrabold text-[#7a1e1e]">Item indisponível</h2><p className="mt-2 text-sm leading-relaxed text-ilarica-muted">{unavailableReason}</p><div className="mt-6 flex flex-wrap justify-end gap-3"><Link to="/" className="inline-flex min-h-11 items-center rounded-xl bg-[#fff0e8] px-4 text-sm font-bold text-ilarica-orange">Ver outras cantinas</Link><button type="button" onClick={() => setUnavailableReason(null)} className="min-h-11 rounded-xl bg-ilarica-orange px-5 text-sm font-bold text-white">Entendi</button></div></section></div>}
+      {selectedProduct && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedProduct(null); }}><section role="dialog" aria-modal="true" aria-labelledby="product-detail-title" className="w-full max-w-lg overflow-hidden rounded-3xl bg-white"><img src={selectedProduct.image_url || vendorHeroImage} alt="" className="h-48 w-full object-cover" /><div className="p-6"><div className="flex items-start justify-between gap-4"><div><span className="rounded-full bg-[#fff0e8] px-2.5 py-1 text-[10px] font-bold uppercase text-ilarica-orange">{categoryLabels[selectedProduct.category]}</span><h2 id="product-detail-title" className="mt-2 font-display text-2xl font-extrabold text-[#7a1e1e]">{selectedProduct.name}</h2></div><button type="button" aria-label="Fechar detalhes" onClick={() => setSelectedProduct(null)} className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0e8] text-xl font-bold text-ilarica-orange">×</button></div>{selectedProduct.description && <p className="mt-3 text-sm leading-relaxed text-ilarica-muted">{selectedProduct.description}</p>}<div className="mt-5 flex items-center justify-between"><div><strong className="font-display text-2xl text-ilarica-orange">{formatMoney(selectedProduct.price)}</strong><p className="text-xs font-semibold text-ilarica-muted">Quantidade disponível: {selectedProduct.stock_quantity}</p></div><div className="flex items-center rounded-xl bg-[#fff1d6] p-1"><button type="button" aria-label="Diminuir quantidade" disabled={selectedQuantity === 1} onClick={() => setSelectedQuantity((value) => Math.max(1, value - 1))} className="h-11 w-11 rounded-lg font-bold text-ilarica-orange disabled:opacity-40">−</button><span aria-label="Quantidade selecionada" className="min-w-10 text-center font-bold">{selectedQuantity}</span><button type="button" aria-label="Aumentar quantidade" disabled={selectedQuantity >= selectedProduct.stock_quantity} onClick={() => setSelectedQuantity((value) => Math.min(selectedProduct.stock_quantity, value + 1))} className="h-11 w-11 rounded-lg font-bold text-ilarica-orange disabled:opacity-40">+</button></div></div><button type="button" disabled={!canteen.is_open || selectedProduct.stock_quantity === 0} onClick={() => handleAddItem(selectedProduct, selectedQuantity)} className="mt-6 min-h-12 w-full rounded-full bg-ilarica-orange px-6 font-bold text-white disabled:cursor-not-allowed disabled:bg-[#c9c5bc]">{selectedProduct.stock_quantity === 0 ? 'Produto esgotado' : `Adicionar ${selectedQuantity} ao carrinho`}</button></div></section></div>}
     </main>
   );
 }

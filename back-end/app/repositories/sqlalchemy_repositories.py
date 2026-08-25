@@ -63,11 +63,12 @@ def _to_domain_product(model: ProductModel) -> Product:
         name=model.name,
         price=Decimal(str(model.price)),
         is_active=model.is_active,
-        stock_quantity=0,
+        stock_quantity=model.stock_quantity,
         is_fast_stock_enabled=model.is_fast_stock_enabled,
         canteen_id=str(model.canteen_id),
         description=model.description,
         image_url=model.image_url,
+        category=model.category,
     )
 
 
@@ -222,6 +223,8 @@ class SQLAlchemyProductRepository(IProductRepository):
                 is_fast_stock_enabled=product.is_fast_stock_enabled,
                 description=product.description,
                 image_url=product.image_url,
+                category=product.category,
+                stock_quantity=product.stock_quantity,
             )
             self.session.add(model)
         else:
@@ -231,6 +234,8 @@ class SQLAlchemyProductRepository(IProductRepository):
             model.is_fast_stock_enabled = product.is_fast_stock_enabled
             model.description = product.description
             model.image_url = product.image_url
+            model.category = product.category
+            model.stock_quantity = product.stock_quantity
             if canteen_id is not None:
                 model.canteen_id = canteen_id
         self.session.flush()

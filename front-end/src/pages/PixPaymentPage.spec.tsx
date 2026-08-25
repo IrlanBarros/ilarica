@@ -8,7 +8,7 @@ import { useCartStore, usePaymentStore } from '../store';
 import type { Product } from '../types';
 import { PixPaymentPage } from './PixPaymentPage';
 
-const product: Product = { id: 'product-1', canteen_id: 'canteen-1', name: 'Coxinha', description: null, price: '6.50', is_active: true, is_fast_stock_enabled: false };
+const product: Product = { id: 'product-1', canteen_id: 'canteen-1', name: 'Coxinha', description: null, price: '6.50', is_active: true, is_fast_stock_enabled: false, category: 'salgados', stock_quantity: 20 };
 
 function renderPage(): void {
   render(<MemoryRouter initialEntries={['/pagamentos/payment-1/pix']}><Routes>

@@ -31,6 +31,8 @@ const product: Product = {
   price: '5.00',
   is_active: true,
   is_fast_stock_enabled: false,
+  category: 'doces',
+  stock_quantity: 12,
 };
 
 function renderPage(): void {
@@ -74,9 +76,10 @@ describe('CanteenPage', () => {
     renderPage();
     await screen.findByText('Brownie tradicional');
 
-    const addButton = screen.getByRole('button', { name: 'Adicionar Brownie tradicional ao carrinho' });
-    fireEvent.click(addButton);
-    fireEvent.click(addButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes de Brownie tradicional' }));
+    expect(screen.getByText('Quantidade disponível: 12')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Aumentar quantidade' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar 2 ao carrinho' }));
 
     expect(screen.getByText('2 itens selecionados')).toBeTruthy();
     expect(screen.getByText('R$ 10,00 subtotal')).toBeTruthy();
@@ -92,11 +95,27 @@ describe('CanteenPage', () => {
     renderPage();
     await screen.findByText('Brownie tradicional');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Adicionar Brownie tradicional ao carrinho' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes de Brownie tradicional' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar 1 ao carrinho' }));
 
     expect(screen.getByRole('status').textContent).toContain('outra cantina');
     expect(useCartStore.getState().items).toHaveLength(1);
     expect(useCartStore.getState().canteenId).toBe('canteen-2');
+  });
+
+  it('filters products by category', async () => {
+    getCanteenMock.mockResolvedValue(canteen);
+    listProductsMock.mockResolvedValue([
+      product,
+      { ...product, id: 'juice', name: 'Suco', category: 'bebidas' },
+    ]);
+    renderPage();
+    await screen.findByText('Brownie tradicional');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bebidas' }));
+
+    expect(screen.getByText('Suco')).toBeTruthy();
+    expect(screen.queryByText('Brownie tradicional')).toBeNull();
   });
 
   it('shows an error and retries the API requests', async () => {

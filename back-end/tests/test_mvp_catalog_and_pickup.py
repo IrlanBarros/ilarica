@@ -21,9 +21,11 @@ def test_seller_product_crud_is_scoped_to_owned_canteen(client: TestClient, db_s
     db_session.commit()
     app.dependency_overrides[get_current_user] = lambda: staff_a
 
-    created = client.post("/canteens/me/products", json={"name": "Coxinha", "description": "Quente", "price": "7.50", "image_url": "https://img.example/coxinha.jpg", "is_active": True})
+    created = client.post("/canteens/me/products", json={"name": "Coxinha", "description": "Quente", "price": "7.50", "image_url": "https://img.example/coxinha.jpg", "category": "salgados", "stock_quantity": 18, "is_active": True})
     assert created.status_code == 201
     assert created.json()["canteen_id"] == str(canteen_a.id)
+    assert created.json()["category"] == "salgados"
+    assert created.json()["stock_quantity"] == 18
     assert client.patch(f"/canteens/me/products/{foreign.id}", json={"is_active": False}).status_code == 404
     assert {item["name"] for item in client.get("/canteens/me/products").json()} == {"Coxinha"}
 
@@ -43,13 +45,15 @@ def test_seller_can_persist_business_hours(client: TestClient, db_session: Sessi
 def test_pickup_order_needs_no_drop_off_zone_and_is_visible_only_to_customer(client: TestClient, db_session: Session) -> None:
     customer, other, staff = _user("customer", "Customer"), _user("customer", "Other"), _user("canteen_staff", "Staff")
     canteen = CanteenModel(id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco H", is_open=True)
-    product = ProductModel(id=uuid4(), canteen_id=canteen.id, name="Coxinha", price="8.00", is_active=True, is_fast_stock_enabled=False)
+    product = ProductModel(id=uuid4(), canteen_id=canteen.id, name="Coxinha", price="8.00", category="salgados", stock_quantity=5, is_active=True, is_fast_stock_enabled=True)
     db_session.add_all([customer, other, staff, canteen, product])
     db_session.commit()
     app.dependency_overrides[get_current_user] = lambda: customer
     created = client.post("/orders/", json={"customer_id": str(customer.id), "canteen_id": str(canteen.id), "fulfillment_type": "pickup", "drop_off_zone_id": None, "items": [{"product_id": str(product.id), "quantity": 2}]})
     assert created.status_code == 201
     assert created.json()["fulfillment_type"] == "pickup"
+    db_session.refresh(product)
+    assert product.stock_quantity == 3
     own = client.get("/orders/me")
     assert own.status_code == 200 and [entry["id"] for entry in own.json()] == [created.json()["id"]]
     app.dependency_overrides[get_current_user] = lambda: other

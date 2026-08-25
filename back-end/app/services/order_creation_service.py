@@ -105,6 +105,14 @@ class OrderCreationService:
                     raise OrderCreationError("invalid", "All products must belong to the selected canteen")
                 if not product.is_active:
                     raise OrderCreationError("conflict", f"Product '{product.name}' is unavailable")
+                if product.is_fast_stock_enabled and quantity > product.stock_quantity:
+                    raise OrderCreationError(
+                        "conflict", f"Product '{product.name}' does not have enough stock"
+                    )
+                if product.is_fast_stock_enabled:
+                    product.stock_quantity -= quantity
+                    if product.stock_quantity == 0:
+                        product.is_active = False
                 domain_items.append(
                     OrderItem(
                         product_id=str(product.id),

@@ -4,7 +4,7 @@ import { confirmSellerOrderPickup, createMyCanteenProduct, deleteMyCanteenProduc
 import type { BusinessHoursEntry, ProductCreate, ProductUpdate, SellerMenuItem, SellerOrder, SellerOrderStage, SellerSection } from '../types';
 
 const labels: Record<BusinessHoursEntry['id'], string> = { weekdays: 'Segunda a Sexta', saturday: 'Sábado', sunday: 'Domingo' };
-const toItem = (product: Awaited<ReturnType<typeof listMyCanteenProducts>>[number]): SellerMenuItem => ({ id: product.id, name: product.name, description: product.description ?? '', price: String(product.price), imageUrl: product.image_url ?? '', isAvailable: product.is_active });
+const toItem = (product: Awaited<ReturnType<typeof listMyCanteenProducts>>[number]): SellerMenuItem => ({ id: product.id, name: product.name, description: product.description ?? '', price: String(product.price), imageUrl: product.image_url ?? '', isAvailable: product.is_active, category: product.category, stockQuantity: product.stock_quantity });
 
 interface SellerState {
   activeSection: SellerSection; items: SellerMenuItem[]; businessHours: BusinessHoursEntry[];

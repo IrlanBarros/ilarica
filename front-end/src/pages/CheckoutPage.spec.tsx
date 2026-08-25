@@ -8,7 +8,7 @@ import { useAuthStore, useCartStore, usePaymentStore } from '../store';
 import type { Order, PaymentTransaction, Product } from '../types';
 import { CheckoutPage } from './CheckoutPage';
 
-const product: Product = { id: 'product-1', canteen_id: 'canteen-1', name: 'Coxinha Suprema', description: null, price: '6.50', is_active: true, is_fast_stock_enabled: false };
+const product: Product = { id: 'product-1', canteen_id: 'canteen-1', name: 'Coxinha Suprema', description: null, price: '6.50', is_active: true, is_fast_stock_enabled: false, category: 'salgados', stock_quantity: 20 };
 const order: Order = { id: 'order-1', customer_id: 'customer-1', canteen_id: 'canteen-1', drop_off_zone_id: 'zone-1', status: 'draft', total_amount: '13.00', items: [{ id: 'item-1', product_id: 'product-1', quantity: 2, unit_price: '6.50' }], pickup_pin: null };
 
 function transaction(overrides: Partial<PaymentTransaction> = {}): PaymentTransaction {
