@@ -17,6 +17,7 @@ class Canteen:
     location: str
     is_open: bool = False
     products: list[str] = field(default_factory=list)
+    opening_hours: list[dict[str, object]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Normalize and validate the persisted canteen identity."""

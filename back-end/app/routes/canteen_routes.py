@@ -14,7 +14,7 @@ from app.application.use_cases.manage_canteens import (
     ListCanteensUseCase,
     UpdateCanteenUseCase,
 )
-from app.database.models import CanteenModel, OrderItemModel, OrderModel, OrderStatus, UserModel
+from app.database.models import CanteenModel, OrderItemModel, OrderModel, OrderStatus, ProductModel, UserModel
 from app.dependencies.auth import get_current_user
 from app.domain.exceptions import InvalidOrderStatusTransitionError
 from app.domain.order.order import Order
@@ -26,6 +26,7 @@ from app.schemas.canteen_schemas import (
     CanteenResponse,
     CanteenUpdate,
 )
+from app.schemas.product_schemas import ProductBase, ProductResponse, ProductUpdate
 from app.schemas.order_schemas import (
     SellerOrderCustomerResponse,
     SellerOrderDestinationResponse,
@@ -75,7 +76,8 @@ def _seller_order_response(order: OrderModel) -> SellerOrderResponse:
             id=order.drop_off_zone.id,
             name=order.drop_off_zone.name,
             description=order.drop_off_zone.description,
-        ),
+        ) if order.drop_off_zone else None,
+        fulfillment_type=order.fulfillment_type,
     )
 
 
@@ -85,6 +87,98 @@ def _seller_order_query(db: Session):
         selectinload(OrderModel.drop_off_zone),
         selectinload(OrderModel.items).selectinload(OrderItemModel.product),
     )
+
+
+def _product_response(product: ProductModel) -> ProductResponse:
+    return ProductResponse(
+        id=str(product.id), canteen_id=str(product.canteen_id), name=product.name,
+        description=product.description, image_url=product.image_url, price=product.price,
+        is_active=product.is_active, is_fast_stock_enabled=product.is_fast_stock_enabled,
+    )
+
+
+@router.get("/me", response_model=CanteenResponse, summary="Get authenticated staff canteen")
+def get_my_canteen(
+    db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)
+) -> CanteenResponse:
+    return CanteenResponse.model_validate(_owned_canteen(db, current_user))
+
+
+@router.patch("/me", response_model=CanteenResponse, summary="Update authenticated staff canteen")
+def update_my_canteen(
+    payload: CanteenUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> CanteenResponse:
+    canteen = _owned_canteen(db, current_user)
+    for key, value in payload.model_dump(exclude_unset=True, mode="json").items():
+        setattr(canteen, key, value)
+    db.add(canteen)
+    db.commit()
+    db.refresh(canteen)
+    return CanteenResponse.model_validate(canteen)
+
+
+@router.get("/me/products", response_model=list[ProductResponse], summary="List authenticated canteen products")
+def list_my_products(
+    db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)
+) -> list[ProductResponse]:
+    canteen = _owned_canteen(db, current_user)
+    products = db.query(ProductModel).filter(ProductModel.canteen_id == canteen.id).order_by(ProductModel.name).all()
+    return [_product_response(product) for product in products]
+
+
+@router.post("/me/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+def create_my_product(
+    payload: ProductBase,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> ProductResponse:
+    canteen = _owned_canteen(db, current_user)
+    product = ProductModel(canteen_id=canteen.id, **payload.model_dump())
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return _product_response(product)
+
+
+def _owned_product(db: Session, canteen: CanteenModel, product_id: UUID) -> ProductModel:
+    product = db.query(ProductModel).filter(
+        ProductModel.id == product_id, ProductModel.canteen_id == canteen.id
+    ).one_or_none()
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    return product
+
+
+@router.patch("/me/products/{product_id}", response_model=ProductResponse)
+def update_my_product(
+    product_id: UUID,
+    payload: ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> ProductResponse:
+    canteen = _owned_canteen(db, current_user)
+    product = _owned_product(db, canteen, product_id)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(product, key, value)
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return _product_response(product)
+
+
+@router.delete("/me/products/{product_id}")
+def delete_my_product(
+    product_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, str]:
+    canteen = _owned_canteen(db, current_user)
+    product = _owned_product(db, canteen, product_id)
+    db.delete(product)
+    db.commit()
+    return {"detail": "Product deleted successfully"}
 
 
 @router.get("/me/orders", response_model=list[SellerOrderResponse], summary="List authenticated canteen orders")
@@ -125,13 +219,17 @@ def update_my_canteen_order_status(
         id=str(order.id),
         user_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
-        drop_off_zone_id=str(order.drop_off_zone_id),
+        drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        fulfillment_type=order.fulfillment_type,
         status=_order_status_value(order),
         is_paid=True,
     )
     try:
         aggregate.advance_canteen_fulfillment(payload.status)
         order.status = OrderStatus(aggregate.status)
+        if aggregate.status == Order.STATUS_READY_FOR_PICKUP and order.fulfillment_type == "pickup":
+            aggregate.generate_pickup_pin()
+            order.pickup_pin = aggregate.pickup_pin
         db.add(order)
         db.commit()
         db.refresh(order)
@@ -152,6 +250,7 @@ def _to_response(canteen: Canteen) -> CanteenResponse:
         location=canteen.location,
         is_open=canteen.is_open,
         products=[UUID(product_id) for product_id in canteen.products],
+        opening_hours=canteen.opening_hours,
     )
 
 

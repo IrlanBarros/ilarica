@@ -6,9 +6,9 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.database.models import CanteenModel, DropOffZoneModel, OrderModel, ProductModel, UserModel
+from app.database.models import CanteenModel, DropOffZoneModel, OrderItemModel, OrderModel, ProductModel, UserModel
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.domain.order.order import Order
@@ -18,7 +18,10 @@ from app.repositories.sqlalchemy_repositories import (
     SQLAlchemyProductRepository,
     SQLAlchemyWalletRepository,
 )
-from app.schemas.order_schemas import OrderCreate, OrderItemResponse, OrderResponse, OrderUpdate
+from app.schemas.order_schemas import (
+    CustomerOrderCanteenResponse, CustomerOrderResponse, OrderCreate, OrderItemResponse,
+    OrderResponse, OrderUpdate, SellerOrderDestinationResponse, SellerOrderItemResponse,
+)
 from app.services.order_service import OrderService
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -49,7 +52,7 @@ def create_order(
 
     try:
         canteen_uuid = UUID(payload.canteen_id)
-        zone_uuid = UUID(payload.drop_off_zone_id)
+        zone_uuid = UUID(payload.drop_off_zone_id) if payload.drop_off_zone_id else None
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid UUID in order payload") from exc
 
@@ -59,14 +62,15 @@ def create_order(
     if not canteen.is_open:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected canteen is currently unavailable")
 
-    zone = db.get(DropOffZoneModel, zone_uuid)
-    if zone is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Drop-off zone not found")
-    if not zone.is_active:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected drop-off zone is unavailable")
-    current_zone_load = db.query(OrderModel).filter(OrderModel.drop_off_zone_id == zone.id, OrderModel.status != "completed").count()
-    if current_zone_load >= zone.capacity:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected drop-off zone is at capacity")
+    if payload.fulfillment_type == "delivery":
+        zone = db.get(DropOffZoneModel, zone_uuid)
+        if zone is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Drop-off zone not found")
+        if not zone.is_active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected drop-off zone is unavailable")
+        current_zone_load = db.query(OrderModel).filter(OrderModel.drop_off_zone_id == zone.id, OrderModel.status != "completed").count()
+        if current_zone_load >= zone.capacity:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The selected drop-off zone is at capacity")
 
     service = OrderService(SQLAlchemyOrderRepository(db), SQLAlchemyProductRepository(db), SQLAlchemyWalletRepository(db))
     order_items: list[OrderItem] = []
@@ -100,6 +104,7 @@ def create_order(
         user_id=payload.customer_id,
         canteen_id=payload.canteen_id,
         drop_off_zone_id=payload.drop_off_zone_id,
+        fulfillment_type=payload.fulfillment_type,
         items=order_items,
         status="draft",
         is_paid=False,
@@ -116,6 +121,7 @@ def create_order(
         customer_id=payload.customer_id,
         canteen_id=payload.canteen_id,
         drop_off_zone_id=payload.drop_off_zone_id,
+        fulfillment_type=payload.fulfillment_type,
         status=saved.status,
         total_amount=total,
         items=[
@@ -129,6 +135,41 @@ def create_order(
         ],
         pickup_pin=None,
     )
+
+
+@router.get("/me", response_model=list[CustomerOrderResponse], summary="List authenticated customer orders")
+def list_my_orders(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> list[CustomerOrderResponse]:
+    if str(current_user.role_type) != "customer":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Customer access required")
+    orders = db.query(OrderModel).options(
+        selectinload(OrderModel.canteen),
+        selectinload(OrderModel.drop_off_zone),
+        selectinload(OrderModel.items).selectinload(OrderItemModel.product),
+    ).filter(OrderModel.customer_id == current_user.id).order_by(OrderModel.id.desc()).all()
+    return [
+        CustomerOrderResponse(
+            id=order.id,
+            canteen_id=order.canteen_id,
+            status=order.status.value if hasattr(order.status, "value") else str(order.status),
+            fulfillment_type=order.fulfillment_type,
+            items=[SellerOrderItemResponse(
+                id=item.id, product_id=item.product_id, name=item.product.name,
+                quantity=item.quantity, unit_price=item.unit_price,
+            ) for item in order.items],
+            total_amount=order.total_amount,
+            destination=SellerOrderDestinationResponse(
+                id=order.drop_off_zone.id, name=order.drop_off_zone.name,
+                description=order.drop_off_zone.description,
+            ) if order.drop_off_zone else None,
+            canteen=CustomerOrderCanteenResponse(
+                id=order.canteen.id, name=order.canteen.name, location=order.canteen.location,
+            ),
+            pickup_pin=order.pickup_pin if order.fulfillment_type == "pickup" else None,
+        ) for order in orders
+    ]
 
 
 @router.get(
@@ -150,7 +191,8 @@ def list_orders(
             id=str(order.id),
             customer_id=str(order.customer_id),
             canteen_id=str(order.canteen_id),
-            drop_off_zone_id=str(order.drop_off_zone_id),
+            drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+            fulfillment_type=order.fulfillment_type,
             status=str(order.status),
             total_amount=Decimal(str(order.total_amount)),
             items=[],
@@ -176,7 +218,8 @@ def get_order(order_id: str, db: Session = Depends(get_db)) -> OrderResponse:
         id=str(order.id),
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
-        drop_off_zone_id=str(order.drop_off_zone_id),
+        drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        fulfillment_type=order.fulfillment_type,
         status=str(order.status),
         total_amount=Decimal(str(order.total_amount)),
         items=[],
@@ -207,7 +250,8 @@ def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_
         id=str(order.id),
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
-        drop_off_zone_id=str(order.drop_off_zone_id),
+        drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        fulfillment_type=order.fulfillment_type,
         status=str(order.status),
         total_amount=Decimal(str(order.total_amount)),
         items=[],

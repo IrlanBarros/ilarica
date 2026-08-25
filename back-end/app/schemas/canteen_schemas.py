@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class BusinessHoursEntry(BaseModel):
+    """One persisted operating-hours range."""
+
+    day: Literal["weekdays", "saturday", "sunday"]
+    opens_at: str = Field(..., pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    closes_at: str = Field(..., pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    is_open: bool
 
 
 class CanteenBase(BaseModel):
@@ -14,6 +23,7 @@ class CanteenBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=150)
     location: str = Field(..., min_length=2, max_length=200)
     is_open: bool = False
+    opening_hours: list[BusinessHoursEntry] = Field(default_factory=list)
     model_config = ConfigDict(extra="forbid")
     @field_validator("name", "location")
     @classmethod
@@ -36,6 +46,7 @@ class CanteenUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     location: Optional[str] = Field(default=None, min_length=2, max_length=200)
     is_open: Optional[bool] = None
+    opening_hours: Optional[list[BusinessHoursEntry]] = None
     model_config = ConfigDict(extra="forbid")
     @field_validator("name", "location")
     @classmethod

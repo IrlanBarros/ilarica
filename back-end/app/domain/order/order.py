@@ -38,6 +38,7 @@ class Order:
     pickup_pin: str | None = None
     canteen_id: str | None = None
     drop_off_zone_id: str | None = None
+    fulfillment_type: str = "delivery"
     delivery_ride_id: str | None = None
     delivery_fee: Decimal = Decimal("0.00")
     canteen_commission: Decimal = Decimal("0.00")

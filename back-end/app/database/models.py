@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -115,6 +115,7 @@ class CanteenModel(Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     location: Mapped[str] = mapped_column(String(200), nullable=False)
     is_open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    opening_hours: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
 
     user: Mapped[UserModel] = relationship(back_populates="canteens")
     products: Mapped[list["ProductModel"]] = relationship(
@@ -148,6 +149,7 @@ class ProductModel(Base):
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     is_fast_stock_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -207,12 +209,13 @@ class OrderModel(Base):
         nullable=False,
         index=True,
     )
-    drop_off_zone_id: Mapped[str] = mapped_column(
+    drop_off_zone_id: Mapped[str | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("drop_off_zones.id", ondelete="SET NULL"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
+    fulfillment_type: Mapped[str] = mapped_column(String(20), nullable=False, default="delivery")
     status: Mapped[OrderStatus] = mapped_column(
         String(50),
         nullable=False,

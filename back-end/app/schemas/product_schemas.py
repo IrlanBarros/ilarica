@@ -13,6 +13,7 @@ class ProductBase(BaseModel):
 
     name: str = Field(..., min_length=2, max_length=150)
     description: Optional[str] = None
+    image_url: Optional[str] = Field(default=None, max_length=500)
     price: Decimal = Field(..., gt=0)
     is_active: bool = True
 
@@ -35,6 +36,7 @@ class ProductUpdate(BaseModel):
 
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     description: Optional[str] = None
+    image_url: Optional[str] = Field(default=None, max_length=500)
     price: Optional[Decimal] = Field(default=None, gt=0)
     is_active: Optional[bool] = None
 

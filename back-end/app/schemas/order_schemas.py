@@ -6,7 +6,9 @@ from decimal import Decimal
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+FulfillmentType = Literal["pickup", "delivery"]
 
 
 class OrderItemBase(BaseModel):
@@ -52,7 +54,8 @@ class OrderBase(BaseModel):
 
     customer_id: str = Field(..., min_length=1)
     canteen_id: str = Field(..., min_length=1)
-    drop_off_zone_id: str = Field(..., min_length=1)
+    fulfillment_type: FulfillmentType = "delivery"
+    drop_off_zone_id: Optional[str] = Field(default=None, min_length=1)
     status: str = Field(default="draft", min_length=2, max_length=50)
     total_amount: Decimal = Field(default=Decimal("0.00"), ge=0)
 
@@ -63,8 +66,17 @@ class OrderCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     customer_id: str = Field(..., min_length=1)
     canteen_id: str = Field(..., min_length=1)
-    drop_off_zone_id: str = Field(..., min_length=1)
+    fulfillment_type: FulfillmentType = "delivery"
+    drop_off_zone_id: Optional[str] = Field(default=None, min_length=1)
     items: List[OrderItemCreate] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def validate_fulfillment(self) -> "OrderCreate":
+        if self.fulfillment_type == "delivery" and not self.drop_off_zone_id:
+            raise ValueError("A drop-off zone is required for delivery")
+        if self.fulfillment_type == "pickup" and self.drop_off_zone_id is not None:
+            raise ValueError("Pickup orders must not include a drop-off zone")
+        return self
 
 
 class OrderUpdate(BaseModel):
@@ -134,7 +146,26 @@ class SellerOrderResponse(BaseModel):
     items: List[SellerOrderItemResponse]
     total_amount: Decimal = Field(..., ge=0)
     customer: SellerOrderCustomerResponse
-    destination: SellerOrderDestinationResponse
+    fulfillment_type: FulfillmentType
+    destination: Optional[SellerOrderDestinationResponse] = None
+
+
+class CustomerOrderCanteenResponse(BaseModel):
+    id: UUID
+    name: str
+    location: str
+
+
+class CustomerOrderResponse(BaseModel):
+    id: UUID
+    canteen_id: UUID
+    status: str
+    fulfillment_type: FulfillmentType
+    items: List[SellerOrderItemResponse]
+    total_amount: Decimal = Field(..., ge=0)
+    destination: Optional[SellerOrderDestinationResponse] = None
+    canteen: CustomerOrderCanteenResponse
+    pickup_pin: Optional[str] = None
 
 
 SchemaBase = OrderBase

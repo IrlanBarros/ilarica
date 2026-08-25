@@ -8,14 +8,21 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.database.models import ProductModel
+from app.database.models import ProductModel, UserModel
 from app.database.session import get_db
+from app.dependencies.auth import get_current_user
 from app.repositories.sqlalchemy_repositories import SQLAlchemyProductRepository
 from app.schemas.product_schemas import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product_service import ProductService
 from app.domain.catalog.product import Product
 
 router = APIRouter(prefix="/products", tags=["Products"])
+
+
+def _require_admin(current_user: UserModel) -> None:
+    role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
+    if role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
 
 
 @router.post(
@@ -28,8 +35,9 @@ router = APIRouter(prefix="/products", tags=["Products"])
         400: {"description": "Invalid product payload."},
     },
 )
-def create_product(payload: ProductCreate, db: Session = Depends(get_db)) -> ProductResponse:
+def create_product(payload: ProductCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)) -> ProductResponse:
     """Create a new product for a canteen."""
+    _require_admin(current_user)
     service = ProductService(SQLAlchemyProductRepository(db))
 
     product = Product(
@@ -39,8 +47,10 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)) -> Pro
         is_active=payload.is_active,
         stock_quantity=0,
         is_fast_stock_enabled=False,
+        canteen_id=payload.canteen_id,
+        description=payload.description,
+        image_url=payload.image_url,
     )
-    setattr(product, "canteen_id", payload.canteen_id)
 
     try:
         saved = service.create(product)
@@ -51,6 +61,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)) -> Pro
         id=saved.id,
         name=saved.name,
         description=payload.description,
+        image_url=payload.image_url,
         price=saved.price,
         is_active=saved.is_active,
         canteen_id=payload.canteen_id,
@@ -71,6 +82,7 @@ def list_products(db: Session = Depends(get_db)) -> list[ProductResponse]:
             id=str(product.id),
             name=product.name,
             description=product.description,
+            image_url=product.image_url,
             price=Decimal(str(product.price)),
             is_active=product.is_active,
             canteen_id=str(product.canteen_id),
@@ -96,6 +108,7 @@ def get_product(product_id: str, db: Session = Depends(get_db)) -> ProductRespon
         id=str(product.id),
         name=product.name,
         description=product.description,
+        image_url=product.image_url,
         price=Decimal(str(product.price)),
         is_active=product.is_active,
         canteen_id=str(product.canteen_id),
@@ -109,8 +122,9 @@ def get_product(product_id: str, db: Session = Depends(get_db)) -> ProductRespon
     summary="Update product",
     responses={404: {"description": "Product not found."}},
 )
-def update_product(product_id: str, payload: ProductUpdate, db: Session = Depends(get_db)) -> ProductResponse:
+def update_product(product_id: str, payload: ProductUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)) -> ProductResponse:
     """Update product data using a partial payload."""
+    _require_admin(current_user)
     product = db.get(ProductModel, product_id)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
@@ -126,6 +140,7 @@ def update_product(product_id: str, payload: ProductUpdate, db: Session = Depend
         id=str(product.id),
         name=product.name,
         description=product.description,
+        image_url=product.image_url,
         price=Decimal(str(product.price)),
         is_active=product.is_active,
         canteen_id=str(product.canteen_id),
@@ -138,8 +153,9 @@ def update_product(product_id: str, payload: ProductUpdate, db: Session = Depend
     summary="Delete product",
     responses={404: {"description": "Product not found."}},
 )
-def delete_product(product_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+def delete_product(product_id: str, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)) -> dict[str, str]:
     """Delete a product by ID."""
+    _require_admin(current_user)
     product = db.get(ProductModel, product_id)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")

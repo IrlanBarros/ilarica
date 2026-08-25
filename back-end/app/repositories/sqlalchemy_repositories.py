@@ -65,6 +65,9 @@ def _to_domain_product(model: ProductModel) -> Product:
         is_active=model.is_active,
         stock_quantity=0,
         is_fast_stock_enabled=model.is_fast_stock_enabled,
+        canteen_id=str(model.canteen_id),
+        description=model.description,
+        image_url=model.image_url,
     )
 
 
@@ -76,6 +79,7 @@ def _to_domain_canteen(model: CanteenModel) -> Canteen:
         location=model.location,
         is_open=model.is_open,
         products=[str(product.id) for product in model.products],
+        opening_hours=model.opening_hours or [],
     )
 
 
@@ -96,7 +100,8 @@ def _to_domain_order(model: OrderModel) -> Order:
         is_paid=str(model.status) in {Order.STATUS_PAID, Order.STATUS_IN_TRANSIT, Order.STATUS_READY_FOR_PICKUP, Order.STATUS_COMPLETED},
         pickup_pin=model.pickup_pin,
         canteen_id=str(model.canteen_id),
-        drop_off_zone_id=str(model.drop_off_zone_id),
+        drop_off_zone_id=str(model.drop_off_zone_id) if model.drop_off_zone_id else None,
+        fulfillment_type=model.fulfillment_type,
         delivery_ride_id=str(model.delivery_ride.id) if getattr(model, "delivery_ride", None) else None,
     )
 
@@ -206,7 +211,7 @@ class SQLAlchemyProductRepository(IProductRepository):
 
     def save(self, product: Product) -> Product:
         model = self.session.get(ProductModel, product.id)
-        canteen_id = getattr(product, "canteen_id", None)
+        canteen_id = product.canteen_id
         if model is None:
             model = ProductModel(
                 id=product.id,
@@ -215,6 +220,8 @@ class SQLAlchemyProductRepository(IProductRepository):
                 price=float(product.price),
                 is_active=product.is_active,
                 is_fast_stock_enabled=product.is_fast_stock_enabled,
+                description=product.description,
+                image_url=product.image_url,
             )
             self.session.add(model)
         else:
@@ -222,6 +229,8 @@ class SQLAlchemyProductRepository(IProductRepository):
             model.price = float(product.price)
             model.is_active = product.is_active
             model.is_fast_stock_enabled = product.is_fast_stock_enabled
+            model.description = product.description
+            model.image_url = product.image_url
             if canteen_id is not None:
                 model.canteen_id = canteen_id
         self.session.flush()
@@ -245,6 +254,7 @@ class SQLAlchemyCanteenRepository(ICanteenRepository):
             name=canteen.name,
             location=canteen.location,
             is_open=canteen.is_open,
+            opening_hours=canteen.opening_hours,
         )
         self.session.add(model)
         self.session.flush()
@@ -284,7 +294,8 @@ class SQLAlchemyOrderRepository(IOrderRepository):
                 id=UUID(order.id),
                 customer_id=UUID(order.user_id),
                 canteen_id=UUID(order.canteen_id),
-                drop_off_zone_id=UUID(order.drop_off_zone_id),
+                drop_off_zone_id=UUID(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+                fulfillment_type=order.fulfillment_type,
                 status=OrderStatus(order.status),
                 total_amount=float(order.total_with_delivery()),
                 pickup_pin=order.pickup_pin,
@@ -302,7 +313,8 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             id=UUID(order.id),
             customer_id=UUID(order.user_id),
             canteen_id=UUID(order.canteen_id),
-            drop_off_zone_id=UUID(order.drop_off_zone_id),
+            drop_off_zone_id=UUID(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+            fulfillment_type=order.fulfillment_type,
             status=OrderStatus(order.status),
             total_amount=float(order.total_with_delivery()),
             pickup_pin=order.pickup_pin,
