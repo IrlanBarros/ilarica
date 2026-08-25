@@ -129,6 +129,11 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
                 name=canteen_name,
                 location=location,
                 is_open=True,
+                opening_hours=[
+                    {"day": "weekdays", "opens_at": "08:00", "closes_at": "18:00", "is_open": True},
+                    {"day": "saturday", "opens_at": "09:00", "closes_at": "13:00", "is_open": True},
+                    {"day": "sunday", "opens_at": "00:00", "closes_at": "00:00", "is_open": False},
+                ],
             )
             session.add(canteen)
             canteens.append(canteen)
@@ -178,6 +183,7 @@ def create_products_for_canteens(session, canteens: list[CanteenModel]) -> list[
                     canteen_id=canteen.id,
                     name=product_name,
                     description=description,
+                    image_url=f"https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80&item={len(created_products)}",
                     price=float(base_price + random.uniform(-0.5, 2.5)),
                     is_fast_stock_enabled=random.choice([True, False]),
                     is_active=True,
@@ -224,12 +230,11 @@ def create_orders(session, customer_users: list[UserModel], canteens: list[Cante
     """Step 4 - Create orders with different statuses and link them to a user, canteen, and products."""
     print_step("Step 4/4: creating orders with different statuses and order items...")
     try:
-        order_statuses = ["pending", "preparing", "completed"]
+        order_statuses = ["paid", "preparing", "ready_for_pickup", "completed"]
 
         for index in range(12):
             customer = random.choice(customer_users)
             canteen = random.choice(canteens)
-            zone = random.choice(zones)
             canteen_products = [product for product in products if product.canteen_id == canteen.id]
             chosen_products = random.sample(canteen_products, k=random.randint(1, 3))
             status = order_statuses[index % len(order_statuses)]
@@ -238,10 +243,11 @@ def create_orders(session, customer_users: list[UserModel], canteens: list[Cante
                 id=uuid4(),
                 customer_id=customer.id,
                 canteen_id=canteen.id,
-                drop_off_zone_id=zone.id,
+                drop_off_zone_id=None,
+                fulfillment_type="pickup",
                 status=status,
                 total_amount=0.0,
-                pickup_pin=str(random.randint(1000, 9999)) if status == "completed" else None,
+                pickup_pin=str(random.randint(1000, 9999)) if status in {"ready_for_pickup", "completed"} else None,
             )
             session.add(order)
             session.flush()
@@ -262,7 +268,7 @@ def create_orders(session, customer_users: list[UserModel], canteens: list[Cante
             order.total_amount = round(subtotal, 2)
 
         session.commit()
-        print_success("Created 12 orders with statuses pending/preparing/completed and linked order items successfully.")
+        print_success("Created 12 pickup orders with valid operational statuses and linked order items successfully.")
     except Exception as exc:  # pragma: no cover - runtime seeding guard
         session.rollback()
         print(f"\033[1;31mError while creating orders: {exc}\033[0m")

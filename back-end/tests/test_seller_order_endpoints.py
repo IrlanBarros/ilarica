@@ -102,3 +102,60 @@ def test_seller_endpoints_require_authentication_and_staff_role(client: TestClie
     db_session.commit()
     app.dependency_overrides[get_current_user] = lambda: customer
     assert client.get("/canteens/me/orders").status_code == 403
+
+
+def _ready_pickup(db: Session):
+    staff_a, staff_b, order_a, _ = _seller_catalog(db)
+    order_a.fulfillment_type = "pickup"
+    order_a.drop_off_zone_id = None
+    order_a.status = "ready_for_pickup"
+    order_a.pickup_pin = "4821"
+    db.commit()
+    return staff_a, staff_b, order_a
+
+
+def test_owner_completes_pickup_with_valid_pin_and_repeat_is_idempotent(client: TestClient, db_session: Session) -> None:
+    staff, _, order = _ready_pickup(db_session)
+    app.dependency_overrides[get_current_user] = lambda: staff
+    url = f"/canteens/me/orders/{order.id}/pickup/confirm"
+
+    first = client.post(url, json={"pickup_pin": "4821"})
+    repeated = client.post(url, json={"pickup_pin": "4821"})
+
+    assert first.status_code == 200 and first.json()["status"] == "completed"
+    assert repeated.status_code == 200 and repeated.json() == first.json()
+    db_session.refresh(order)
+    assert order.status == "completed"
+
+
+def test_pickup_confirmation_rejects_invalid_pin(client: TestClient, db_session: Session) -> None:
+    staff, _, order = _ready_pickup(db_session)
+    app.dependency_overrides[get_current_user] = lambda: staff
+    url = f"/canteens/me/orders/{order.id}/pickup/confirm"
+
+    invalid = client.post(url, json={"pickup_pin": "0000"})
+    assert invalid.status_code == 409
+    db_session.refresh(order)
+    assert order.status == "ready_for_pickup"
+
+
+def test_pickup_confirmation_rejects_wrong_status(client: TestClient, db_session: Session) -> None:
+    staff, _, order = _ready_pickup(db_session)
+    app.dependency_overrides[get_current_user] = lambda: staff
+    url = f"/canteens/me/orders/{order.id}/pickup/confirm"
+    order.status = "preparing"
+    db_session.commit()
+    wrong_status = client.post(url, json={"pickup_pin": "4821"})
+    assert wrong_status.status_code == 409
+    assert "not ready" in wrong_status.json()["detail"]
+
+
+def test_pickup_confirmation_hides_other_canteen_order(client: TestClient, db_session: Session) -> None:
+    _, other_staff, order = _ready_pickup(db_session)
+    app.dependency_overrides[get_current_user] = lambda: other_staff
+
+    response = client.post(f"/canteens/me/orders/{order.id}/pickup/confirm", json={"pickup_pin": "4821"})
+
+    assert response.status_code == 404
+    db_session.refresh(order)
+    assert order.status == "ready_for_pickup"
