@@ -112,6 +112,18 @@ class SellerOrderStatusUpdate(BaseModel):
     status: Literal["preparing", "ready_for_pickup"]
 
 
+class SellerPickupConfirmation(BaseModel):
+    """Customer-provided PIN used by the owning canteen at pickup."""
+
+    model_config = ConfigDict(extra="forbid")
+    pickup_pin: str = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$")
+
+
+class SellerPickupConfirmationResponse(BaseModel):
+    id: UUID
+    status: Literal["completed"]
+
+
 class SellerOrderCustomerResponse(BaseModel):
     """Minimum customer identity required to prepare an order."""
 

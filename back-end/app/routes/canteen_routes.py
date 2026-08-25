@@ -16,7 +16,7 @@ from app.application.use_cases.manage_canteens import (
 )
 from app.database.models import CanteenModel, OrderItemModel, OrderModel, OrderStatus, ProductModel, UserModel
 from app.dependencies.auth import get_current_user
-from app.domain.exceptions import InvalidOrderStatusTransitionError
+from app.domain.exceptions import InvalidOrderStatusTransitionError, InvalidPinError
 from app.domain.order.order import Order
 from app.domain.catalog.canteen import Canteen
 from app.database.session import get_db
@@ -33,6 +33,8 @@ from app.schemas.order_schemas import (
     SellerOrderItemResponse,
     SellerOrderResponse,
     SellerOrderStatusUpdate,
+    SellerPickupConfirmation,
+    SellerPickupConfirmationResponse,
 )
 
 router = APIRouter(prefix="/canteens", tags=["Canteens"])
@@ -240,6 +242,54 @@ def update_my_canteen_order_status(
         db.rollback()
         raise
     return _seller_order_response(order)
+
+
+@router.post(
+    "/me/orders/{order_id}/pickup/confirm",
+    response_model=SellerPickupConfirmationResponse,
+    summary="Confirm pickup using the customer PIN",
+)
+def confirm_my_canteen_order_pickup(
+    order_id: UUID,
+    payload: SellerPickupConfirmation,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> SellerPickupConfirmationResponse:
+    """Complete an owned pickup exactly once while holding a row-level lock."""
+    canteen = _owned_canteen(db, current_user)
+    order = db.query(OrderModel).filter(
+        OrderModel.id == order_id,
+        OrderModel.canteen_id == canteen.id,
+    ).with_for_update().one_or_none()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    current_status = _order_status_value(order)
+    if order.fulfillment_type != "pickup":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pickup orders can be confirmed with a PIN")
+    if current_status == Order.STATUS_COMPLETED:
+        if order.pickup_pin == payload.pickup_pin:
+            return SellerPickupConfirmationResponse(id=order.id, status="completed")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invalid pickup PIN")
+    if current_status != Order.STATUS_READY_FOR_PICKUP:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order is not ready for pickup")
+
+    aggregate = Order(
+        id=str(order.id), user_id=str(order.customer_id), canteen_id=str(order.canteen_id),
+        fulfillment_type=order.fulfillment_type, status=current_status, is_paid=True,
+        pickup_pin=order.pickup_pin,
+    )
+    try:
+        aggregate.complete_order(payload.pickup_pin)
+        order.status = OrderStatus.COMPLETED
+        db.add(order)
+        db.commit()
+    except (InvalidPinError, InvalidOrderStatusTransitionError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+    return SellerPickupConfirmationResponse(id=order.id, status="completed")
 
 
 def _to_response(canteen: Canteen) -> CanteenResponse:
