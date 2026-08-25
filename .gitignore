@@ -70,4 +70,7 @@ Thumbs.db
 test-results/
 playwright-report/
 
+# Local temporary artifacts
+tmp/
+
 /output
