@@ -52,6 +52,14 @@ export async function confirmPasswordReset(token: string, password: string): Pro
   await apiClient.post('/auth/password-reset/confirm', { token, password });
 }
 
+export async function requestEmailVerification(email: string): Promise<void> {
+  await apiClient.post('/auth/email-verification/request', { email });
+}
+
+export async function confirmEmailVerification(token: string): Promise<void> {
+  await apiClient.post('/auth/email-verification/confirm', { token });
+}
+
 export function logout(): void {
   tokenStorage.clear();
   redirectToLogin();

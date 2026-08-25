@@ -14,6 +14,7 @@ const HomePage = lazy(() => import('../pages/HomePage').then((module) => ({ defa
 const LoginPage = lazy(() => import('../pages/LoginPage').then((module) => ({ default: module.LoginPage })));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import('../pages/VerifyEmailPage').then((module) => ({ default: module.VerifyEmailPage })));
 const LegalPage = lazy(() => import('../pages/LegalPage').then((module) => ({ default: module.LegalPage })));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
 const OrderDetailPage = lazy(() => import('../pages/OrderDetailPage').then((module) => ({ default: module.OrderDetailPage })));
@@ -51,6 +52,10 @@ export const router = createBrowserRouter([
       {
         path: '/redefinir-senha',
         element: <ResetPasswordPage />,
+      },
+      {
+        path: '/verificar-email',
+        element: <VerifyEmailPage />,
       },
     ],
   },

@@ -11,7 +11,13 @@ vi.mock('../api/navigation', () => ({
 
 import { apiClient } from '../api';
 import { tokenStorage } from '../api/token-storage';
-import { login, logout, register } from './auth.service';
+import {
+  confirmEmailVerification,
+  login,
+  logout,
+  register,
+  requestEmailVerification,
+} from './auth.service';
 import type { LoginRequest, TokenResponse, User, UserCreate, ValidationErrorDetail } from '../types';
 
 describe('auth.service', () => {
@@ -125,5 +131,13 @@ describe('auth.service', () => {
 
     expect(tokenStorage.get()).toBeNull();
     expect(redirectToLoginMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('requests and confirms institutional email verification', async () => {
+    mock.onPost('/auth/email-verification/request', { email: 'user@ufca.edu.br' }).reply(202);
+    mock.onPost('/auth/email-verification/confirm', { token: 'secure-token' }).reply(200);
+
+    await expect(requestEmailVerification('user@ufca.edu.br')).resolves.toBeUndefined();
+    await expect(confirmEmailVerification('secure-token')).resolves.toBeUndefined();
   });
 });
