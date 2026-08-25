@@ -17,6 +17,7 @@ from app.database.models import (
 from app.domain.order.order import Order
 from app.domain.order.order_item import OrderItem
 from app.repositories.sqlalchemy_repositories import SQLAlchemyOrderRepository
+from app.services.canteen_hours_service import is_canteen_accepting_orders
 
 
 class OrderCreationError(ValueError):
@@ -80,7 +81,7 @@ class OrderCreationService:
             )
             if canteen is None:
                 raise OrderCreationError("not_found", "Canteen not found")
-            if not canteen.is_open:
+            if not is_canteen_accepting_orders(canteen):
                 raise OrderCreationError("conflict", "The selected canteen is currently unavailable")
 
             if fulfillment_type == "delivery":

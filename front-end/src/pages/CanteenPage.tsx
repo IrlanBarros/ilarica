@@ -7,6 +7,7 @@ import plusIcon from '../assets/figma/canteen/plus.svg';
 import vendorHeroImage from '../assets/figma/canteen/vendor-hero.png';
 import { getCanteen } from '../services/canteen.service';
 import { listProducts } from '../services/product.service';
+import { formatNextOpening } from '../lib/canteen-hours';
 import { useCartStore } from '../store';
 import type { Canteen, Product } from '../types';
 
@@ -92,6 +93,8 @@ export function CanteenPage(): React.JSX.Element {
     [cartCanteenId, id, items],
   );
   const itemCount = currentCartItems.reduce((total, item) => total + item.quantity, 0);
+  const isAcceptingOrders = canteen?.is_accepting_orders ?? canteen?.is_open ?? false;
+  const nextOpeningLabel = formatNextOpening(canteen?.next_opening_at);
   const availableCategories = useMemo(
     () => Array.from(new Set(products.map((product) => product.category))),
     [products],
@@ -155,8 +158,9 @@ export function CanteenPage(): React.JSX.Element {
           <div className="relative z-10">
             <h1 className="font-display text-2xl font-extrabold leading-tight">{canteen.name}</h1>
             <p className="mt-0.5 text-xs leading-[1.45] text-white/90">
-              {canteen.location} • {canteen.is_open ? 'Aberto agora' : 'Fechado no momento'}
+              {canteen.location} • {isAcceptingOrders ? 'Aberto agora' : 'Fechado no momento'}
             </p>
+            {!isAcceptingOrders && nextOpeningLabel && <p className="mt-1 text-sm font-bold text-ilarica-orange">{nextOpeningLabel}</p>}
           </div>
         </header>
 
@@ -208,7 +212,7 @@ export function CanteenPage(): React.JSX.Element {
                   <button
                     type="button"
                     onClick={(event) => { event.stopPropagation(); setSelectedProduct(product); setSelectedQuantity(1); }}
-                    disabled={!canteen.is_open || product.stock_quantity === 0}
+                    disabled={!isAcceptingOrders || product.stock_quantity === 0}
                     aria-label={`Ver detalhes de ${product.name}`}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ilarica-orange transition hover:bg-[#ed5925] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ilarica-orange disabled:cursor-not-allowed disabled:bg-[#c9c5bc]"
                   >
@@ -218,7 +222,7 @@ export function CanteenPage(): React.JSX.Element {
               ))}
             </div>
           )}
-          {!canteen.is_open && <button type="button" onClick={() => setUnavailableReason('A cantina pausou temporariamente o recebimento de pedidos. Seus itens atuais não serão cobrados e você pode consultar outras cantinas.')} className="mt-4 min-h-11 font-bold text-ilarica-orange underline">Por que não posso adicionar itens?</button>}
+          {!isAcceptingOrders && <button type="button" onClick={() => setUnavailableReason(nextOpeningLabel ? `A cantina está fora do horário de funcionamento. ${nextOpeningLabel}.` : 'A cantina pausou temporariamente o recebimento de pedidos. Seus itens atuais não serão cobrados e você pode consultar outras cantinas.')} className="mt-4 min-h-11 font-bold text-ilarica-orange underline">Por que não posso adicionar itens?</button>}
         </section>
       </div>
 
@@ -242,7 +246,7 @@ export function CanteenPage(): React.JSX.Element {
         </aside>
       )}
       {unavailableReason && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setUnavailableReason(null); }}><section role="alertdialog" aria-modal="true" aria-labelledby="unavailable-title" className="w-full max-w-md rounded-2xl bg-white p-6"><h2 id="unavailable-title" className="font-display text-xl font-extrabold text-[#7a1e1e]">Item indisponível</h2><p className="mt-2 text-sm leading-relaxed text-ilarica-muted">{unavailableReason}</p><div className="mt-6 flex flex-wrap justify-end gap-3"><Link to="/" className="inline-flex min-h-11 items-center rounded-xl bg-[#fff0e8] px-4 text-sm font-bold text-ilarica-orange">Ver outras cantinas</Link><button type="button" onClick={() => setUnavailableReason(null)} className="min-h-11 rounded-xl bg-ilarica-orange px-5 text-sm font-bold text-white">Entendi</button></div></section></div>}
-      {selectedProduct && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedProduct(null); }}><section role="dialog" aria-modal="true" aria-labelledby="product-detail-title" className="w-full max-w-lg overflow-hidden rounded-3xl bg-white"><img src={selectedProduct.image_url || vendorHeroImage} alt="" className="h-48 w-full object-cover" /><div className="p-6"><div className="flex items-start justify-between gap-4"><div><span className="rounded-full bg-[#fff0e8] px-2.5 py-1 text-[10px] font-bold uppercase text-ilarica-orange">{categoryLabels[selectedProduct.category]}</span><h2 id="product-detail-title" className="mt-2 font-display text-2xl font-extrabold text-[#7a1e1e]">{selectedProduct.name}</h2></div><button type="button" aria-label="Fechar detalhes" onClick={() => setSelectedProduct(null)} className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0e8] text-xl font-bold text-ilarica-orange">×</button></div>{selectedProduct.description && <p className="mt-3 text-sm leading-relaxed text-ilarica-muted">{selectedProduct.description}</p>}<div className="mt-5 flex items-center justify-between"><div><strong className="font-display text-2xl text-ilarica-orange">{formatMoney(selectedProduct.price)}</strong><p className="text-xs font-semibold text-ilarica-muted">Quantidade disponível: {selectedProduct.stock_quantity}</p></div><div className="flex items-center rounded-xl bg-[#fff1d6] p-1"><button type="button" aria-label="Diminuir quantidade" disabled={selectedQuantity === 1} onClick={() => setSelectedQuantity((value) => Math.max(1, value - 1))} className="h-11 w-11 rounded-lg font-bold text-ilarica-orange disabled:opacity-40">−</button><span aria-label="Quantidade selecionada" className="min-w-10 text-center font-bold">{selectedQuantity}</span><button type="button" aria-label="Aumentar quantidade" disabled={selectedQuantity >= selectedProduct.stock_quantity} onClick={() => setSelectedQuantity((value) => Math.min(selectedProduct.stock_quantity, value + 1))} className="h-11 w-11 rounded-lg font-bold text-ilarica-orange disabled:opacity-40">+</button></div></div><button type="button" disabled={!canteen.is_open || selectedProduct.stock_quantity === 0} onClick={() => handleAddItem(selectedProduct, selectedQuantity)} className="mt-6 min-h-12 w-full rounded-full bg-ilarica-orange px-6 font-bold text-white disabled:cursor-not-allowed disabled:bg-[#c9c5bc]">{selectedProduct.stock_quantity === 0 ? 'Produto esgotado' : `Adicionar ${selectedQuantity} ao carrinho`}</button></div></section></div>}
+      {selectedProduct && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedProduct(null); }}><section role="dialog" aria-modal="true" aria-labelledby="product-detail-title" className="w-full max-w-lg overflow-hidden rounded-3xl bg-white"><img src={selectedProduct.image_url || vendorHeroImage} alt="" className="h-48 w-full object-cover" /><div className="p-6"><div className="flex items-start justify-between gap-4"><div><span className="rounded-full bg-[#fff0e8] px-2.5 py-1 text-[10px] font-bold uppercase text-ilarica-orange">{categoryLabels[selectedProduct.category]}</span><h2 id="product-detail-title" className="mt-2 font-display text-2xl font-extrabold text-[#7a1e1e]">{selectedProduct.name}</h2></div><button type="button" aria-label="Fechar detalhes" onClick={() => setSelectedProduct(null)} className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0e8] text-xl font-bold text-ilarica-orange">×</button></div>{selectedProduct.description && <p className="mt-3 text-sm leading-relaxed text-ilarica-muted">{selectedProduct.description}</p>}<div className="mt-5 flex items-center justify-between"><div><strong className="font-display text-2xl text-ilarica-orange">{formatMoney(selectedProduct.price)}</strong><p className="text-xs font-semibold text-ilarica-muted">Quantidade disponível: {selectedProduct.stock_quantity}</p></div><div className="flex items-center rounded-xl bg-[#fff1d6] p-1"><button type="button" aria-label="Diminuir quantidade" disabled={selectedQuantity === 1} onClick={() => setSelectedQuantity((value) => Math.max(1, value - 1))} className="h-11 w-11 rounded-lg font-bold text-ilarica-orange disabled:opacity-40">−</button><span aria-label="Quantidade selecionada" className="min-w-10 text-center font-bold">{selectedQuantity}</span><button type="button" aria-label="Aumentar quantidade" disabled={selectedQuantity >= selectedProduct.stock_quantity} onClick={() => setSelectedQuantity((value) => Math.min(selectedProduct.stock_quantity, value + 1))} className="h-11 w-11 rounded-lg font-bold text-ilarica-orange disabled:opacity-40">+</button></div></div><button type="button" disabled={!isAcceptingOrders || selectedProduct.stock_quantity === 0} onClick={() => handleAddItem(selectedProduct, selectedQuantity)} className="mt-6 min-h-12 w-full rounded-full bg-ilarica-orange px-6 font-bold text-white disabled:cursor-not-allowed disabled:bg-[#c9c5bc]">{selectedProduct.stock_quantity === 0 ? 'Produto esgotado' : `Adicionar ${selectedQuantity} ao carrinho`}</button></div></section></div>}
     </main>
   );
 }

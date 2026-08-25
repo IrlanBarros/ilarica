@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
@@ -65,6 +66,8 @@ class CanteenResponse(CanteenBase):
     id: UUID
     user_id: UUID
     products: list[UUID] = Field(default_factory=list)
+    is_accepting_orders: bool = False
+    next_opening_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
 

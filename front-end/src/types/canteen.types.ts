@@ -11,6 +11,8 @@ export interface CanteenBase {
   is_open: boolean;
   products: string[];
   opening_hours?: CanteenBusinessHoursEntry[];
+  is_accepting_orders?: boolean;
+  next_opening_at?: string | null;
 }
 
 export interface Canteen extends CanteenBase {

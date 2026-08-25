@@ -15,7 +15,12 @@ from app.schemas.order_schemas import OrderCreate
 AUTH_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
-def _catalog(db_session: Session, *, product_active: bool = True) -> tuple[str, str, str]:
+def _catalog(
+    db_session: Session,
+    *,
+    product_active: bool = True,
+    opening_hours: list[dict[str, object]] | None = None,
+) -> tuple[str, str, str]:
     staff = UserModel(
         id=uuid4(),
         name="Cantina QA",
@@ -26,7 +31,10 @@ def _catalog(db_session: Session, *, product_active: bool = True) -> tuple[str, 
         is_active=True,
         is_email_validated=True,
     )
-    canteen = CanteenModel(id=uuid4(), user_id=staff.id, name="Cantina QA", location="Bloco C", is_open=True)
+    canteen = CanteenModel(
+        id=uuid4(), user_id=staff.id, name="Cantina QA", location="Bloco C",
+        is_open=True, opening_hours=opening_hours or [],
+    )
     product = ProductModel(
         id=uuid4(), canteen_id=canteen.id, name="Coxinha QA", description=None,
         price="7.50", is_fast_stock_enabled=False, is_active=product_active,
@@ -84,4 +92,24 @@ def test_create_order_rejects_client_price_and_unavailable_product(
     payload["items"][0].pop("unit_price")
     with pytest.raises(HTTPException) as error:
         create_order(OrderCreate(**payload), db_session, mock_current_user)
+    assert error.value.status_code == 409
+
+
+def test_create_order_rejects_canteen_outside_business_hours(
+    db_session: Session,
+    mock_current_user: User,
+) -> None:
+    closed_schedule = [
+        {"day": day, "opens_at": "08:00", "closes_at": "18:00", "is_open": False}
+        for day in ("weekdays", "saturday", "sunday")
+    ]
+    canteen_id, product_id, zone_id = _catalog(db_session, opening_hours=closed_schedule)
+
+    with pytest.raises(HTTPException) as error:
+        create_order(
+            OrderCreate(**_payload(canteen_id, product_id, zone_id)),
+            db_session,
+            mock_current_user,
+        )
+
     assert error.value.status_code == 409

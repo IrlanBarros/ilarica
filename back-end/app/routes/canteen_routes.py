@@ -29,6 +29,7 @@ from app.schemas.canteen_schemas import (
     CanteenResponse,
     CanteenUpdate,
 )
+from app.services.canteen_hours_service import is_canteen_accepting_orders, next_canteen_opening
 from app.schemas.product_schemas import ProductBase, ProductCategory, ProductResponse, ProductUpdate
 from app.schemas.order_schemas import (
     SellerOrderCustomerResponse,
@@ -311,6 +312,7 @@ def confirm_my_canteen_order_pickup(
 
 
 def _to_response(canteen: Canteen) -> CanteenResponse:
+    accepting_orders = is_canteen_accepting_orders(canteen)
     return CanteenResponse(
         id=UUID(canteen.id),
         user_id=UUID(canteen.user_id),
@@ -319,6 +321,8 @@ def _to_response(canteen: Canteen) -> CanteenResponse:
         is_open=canteen.is_open,
         products=[UUID(product_id) for product_id in canteen.products],
         opening_hours=[BusinessHoursEntry.model_validate(entry) for entry in canteen.opening_hours],
+        is_accepting_orders=accepting_orders,
+        next_opening_at=None if accepting_orders else next_canteen_opening(canteen),
     )
 
 

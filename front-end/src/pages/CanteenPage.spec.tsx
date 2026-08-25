@@ -20,6 +20,7 @@ const canteen: Canteen = {
   name: 'Doces da Júlia',
   location: 'Centro de Convivência',
   is_open: true,
+  is_accepting_orders: true,
   products: ['product-1'],
 };
 
@@ -116,6 +117,20 @@ describe('CanteenPage', () => {
 
     expect(screen.getByText('Suco')).toBeTruthy();
     expect(screen.queryByText('Brownie tradicional')).toBeNull();
+  });
+
+  it('shows the next opening and prevents adding outside business hours', async () => {
+    getCanteenMock.mockResolvedValue({
+      ...canteen,
+      is_accepting_orders: false,
+      next_opening_at: '2026-08-26T08:00:00-03:00',
+    });
+    listProductsMock.mockResolvedValue([product]);
+    renderPage();
+
+    await screen.findByText('Fechado no momento', { exact: false });
+    expect(screen.getByText(/Próxima abertura/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ver detalhes de Brownie tradicional' })).toHaveProperty('disabled', true);
   });
 
   it('shows an error and retries the API requests', async () => {

@@ -26,7 +26,10 @@ def test_canteen_create_get_patch_contract_and_commit(
 
     assert create_response.status_code == HTTPStatus.CREATED
     created = create_response.json()
-    assert set(created) == {"id", "user_id", "name", "location", "is_open", "products", "opening_hours"}
+    assert set(created) == {
+        "id", "user_id", "name", "location", "is_open", "products", "opening_hours",
+        "is_accepting_orders", "next_opening_at",
+    }
     assert created["name"] == "Cantina Central"
     assert created["location"] == "Campus Juazeiro"
 
