@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.database.models import (
     CanteenModel,
     DropOffZoneModel,
-    OrderItemModel,
     OrderModel,
     ProductModel,
 )
@@ -96,7 +95,7 @@ class OrderCreationService:
                 .with_for_update()
                 .all()
             )
-            product_by_id = {product.id: product for product in products}
+            product_by_id = {UUID(str(product.id)): product for product in products}
             domain_items: list[OrderItem] = []
             for (raw_product_id, quantity), product_id in zip(items, product_ids, strict=True):
                 product = product_by_id.get(product_id)
@@ -133,17 +132,19 @@ class OrderCreationService:
                 if isinstance(model, OrderModel) and model.id == UUID(order.id)
             )
             result = CreatedOrder(
-                id=persisted.id,
+                id=UUID(str(persisted.id)),
                 customer_id=persisted.customer_id,
-                canteen_id=persisted.canteen_id,
-                drop_off_zone_id=persisted.drop_off_zone_id,
+                canteen_id=UUID(str(persisted.canteen_id)),
+                drop_off_zone_id=(
+                    UUID(str(persisted.drop_off_zone_id)) if persisted.drop_off_zone_id else None
+                ),
                 fulfillment_type=persisted.fulfillment_type,
                 status=persisted.status.value if hasattr(persisted.status, "value") else str(persisted.status),
                 total_amount=Decimal(str(persisted.total_amount)),
                 items=tuple(
                     CreatedOrderItem(
-                        id=item.id,
-                        product_id=item.product_id,
+                        id=UUID(str(item.id)),
+                        product_id=UUID(str(item.product_id)),
                         quantity=item.quantity,
                         unit_price=Decimal(str(item.unit_price)),
                     )

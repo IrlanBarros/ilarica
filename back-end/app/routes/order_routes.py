@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,6 +20,8 @@ from app.services.order_creation_service import CreatedOrder, OrderCreationError
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+FulfillmentType = Literal["pickup", "delivery"]
+
 
 def _order_response(order: OrderModel | CreatedOrder, *, include_pin: bool = True) -> OrderResponse:
     return OrderResponse(
@@ -26,7 +29,7 @@ def _order_response(order: OrderModel | CreatedOrder, *, include_pin: bool = Tru
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
         drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
-        fulfillment_type=order.fulfillment_type,
+        fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
         status=order.status.value if hasattr(order.status, "value") else str(order.status),
         total_amount=Decimal(str(order.total_amount)),
         items=[
@@ -95,21 +98,23 @@ def list_my_orders(
     ).filter(OrderModel.customer_id == current_user.id).order_by(OrderModel.id.desc()).all()
     return [
         CustomerOrderResponse(
-            id=order.id,
-            canteen_id=order.canteen_id,
+            id=UUID(str(order.id)),
+            canteen_id=UUID(str(order.canteen_id)),
             status=order.status.value if hasattr(order.status, "value") else str(order.status),
-            fulfillment_type=order.fulfillment_type,
+            fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
             items=[SellerOrderItemResponse(
-                id=item.id, product_id=item.product_id, name=item.product.name,
-                quantity=item.quantity, unit_price=item.unit_price,
+                id=UUID(str(item.id)), product_id=UUID(str(item.product_id)),
+                name=item.product.name, quantity=item.quantity,
+                unit_price=Decimal(str(item.unit_price)),
             ) for item in order.items],
-            total_amount=order.total_amount,
+            total_amount=Decimal(str(order.total_amount)),
             destination=SellerOrderDestinationResponse(
-                id=order.drop_off_zone.id, name=order.drop_off_zone.name,
+                id=UUID(str(order.drop_off_zone.id)), name=order.drop_off_zone.name,
                 description=order.drop_off_zone.description,
             ) if order.drop_off_zone else None,
             canteen=CustomerOrderCanteenResponse(
-                id=order.canteen.id, name=order.canteen.name, location=order.canteen.location,
+                id=UUID(str(order.canteen.id)), name=order.canteen.name,
+                location=order.canteen.location,
             ),
             pickup_pin=order.pickup_pin if order.fulfillment_type == "pickup" else None,
         ) for order in orders
@@ -175,7 +180,7 @@ def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
         drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
-        fulfillment_type=order.fulfillment_type,
+        fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
         status=str(order.status),
         total_amount=Decimal(str(order.total_amount)),
         items=[],

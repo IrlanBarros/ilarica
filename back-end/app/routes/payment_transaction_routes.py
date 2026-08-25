@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+from typing import cast
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -13,6 +16,8 @@ from app.schemas.payment_transaction_schemas import (
     PaymentIntentCreate,
     PaymentTransactionResponse,
     PaymentWebhookUpdate,
+    PaymentMethod,
+    PaymentStatus,
 )
 from app.services.payment_service import PaymentFlowError, PaymentService, build_pix_qr_data_url
 
@@ -23,9 +28,9 @@ def _response(transaction: PaymentTransactionModel) -> PaymentTransactionRespons
     return PaymentTransactionResponse(
         id=str(transaction.id),
         order_id=str(transaction.order_id),
-        amount=transaction.amount,
-        payment_method=transaction.method,
-        status=transaction.status,
+        amount=Decimal(str(transaction.amount)),
+        payment_method=cast(PaymentMethod, transaction.method),
+        status=cast(PaymentStatus, transaction.status),
         external_reference=transaction.external_reference,
         pix_copy_paste=transaction.pix_copy_paste,
         pix_qr_code=(

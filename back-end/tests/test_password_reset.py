@@ -10,7 +10,8 @@ from app.services.password_reset_service import InvalidPasswordResetTokenError, 
 
 def test_password_reset_is_single_use_and_stores_only_digest(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     user = UserModel(id=uuid4(), name="Cliente", email="reset@ufca.edu.br", whatsapp="5588999999999", password_hash="old", role_type="customer", is_active=True, is_email_validated=True)
-    db_session.add(user); db_session.commit()
+    db_session.add(user)
+    db_session.commit()
     captured: list[str] = []
     monkeypatch.setenv("SMTP_HOST", "smtp.test")
     monkeypatch.setattr(PasswordResetService, "_send_email", staticmethod(lambda _recipient, token: captured.append(token)))

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.database.models import CanteenModel, DropOffZoneModel, OrderItemModel, OrderModel, ProductModel, UserModel
+from app.database.models import CanteenModel, DropOffZoneModel, OrderModel, ProductModel, UserModel
 from app.domain.access_identity.user import User
 from app.routes.order_routes import create_order
 from app.schemas.order_schemas import OrderCreate

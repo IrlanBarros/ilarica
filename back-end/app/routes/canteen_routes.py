@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,6 +24,7 @@ from app.domain.catalog.canteen import Canteen
 from app.database.session import get_db
 from app.repositories.sqlalchemy_repositories import SQLAlchemyCanteenRepository
 from app.schemas.canteen_schemas import (
+    BusinessHoursEntry,
     CanteenCreate,
     CanteenResponse,
     CanteenUpdate,
@@ -40,8 +43,13 @@ from app.schemas.order_schemas import (
 router = APIRouter(prefix="/canteens", tags=["Canteens"])
 
 
-def _order_status_value(order: OrderModel) -> str:
-    return order.status.value if isinstance(order.status, OrderStatus) else str(order.status)
+SellerOrderStatus = Literal["paid", "preparing", "ready_for_pickup", "completed"]
+FulfillmentType = Literal["pickup", "delivery"]
+
+
+def _order_status_value(order: OrderModel) -> SellerOrderStatus:
+    value = order.status.value if isinstance(order.status, OrderStatus) else str(order.status)
+    return cast(SellerOrderStatus, value)
 
 
 def _owned_canteen(db: Session, current_user: UserModel) -> CanteenModel:
@@ -53,27 +61,27 @@ def _owned_canteen(db: Session, current_user: UserModel) -> CanteenModel:
 
 def _seller_order_response(order: OrderModel) -> SellerOrderResponse:
     return SellerOrderResponse(
-        id=order.id,
-        canteen_id=order.canteen_id,
+        id=UUID(str(order.id)),
+        canteen_id=UUID(str(order.canteen_id)),
         status=_order_status_value(order),
         items=[
             SellerOrderItemResponse(
-                id=item.id,
-                product_id=item.product_id,
+                id=UUID(str(item.id)),
+                product_id=UUID(str(item.product_id)),
                 name=item.product.name,
                 quantity=item.quantity,
-                unit_price=item.unit_price,
+                unit_price=Decimal(str(item.unit_price)),
             )
             for item in order.items
         ],
-        total_amount=order.total_amount,
+        total_amount=Decimal(str(order.total_amount)),
         customer=SellerOrderCustomerResponse(id=order.customer.id, name=order.customer.name),
         destination=SellerOrderDestinationResponse(
-            id=order.drop_off_zone.id,
+            id=UUID(str(order.drop_off_zone.id)),
             name=order.drop_off_zone.name,
             description=order.drop_off_zone.description,
         ) if order.drop_off_zone else None,
-        fulfillment_type=order.fulfillment_type,
+        fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
     )
 
 
@@ -88,7 +96,8 @@ def _seller_order_query(db: Session):
 def _product_response(product: ProductModel) -> ProductResponse:
     return ProductResponse(
         id=str(product.id), canteen_id=str(product.canteen_id), name=product.name,
-        description=product.description, image_url=product.image_url, price=product.price,
+        description=product.description, image_url=product.image_url,
+        price=Decimal(str(product.price)),
         is_active=product.is_active, is_fast_stock_enabled=product.is_fast_stock_enabled,
     )
 
@@ -276,7 +285,7 @@ def confirm_my_canteen_order_pickup(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pickup orders can be confirmed with a PIN")
     if current_status == Order.STATUS_COMPLETED:
         if order.pickup_pin == payload.pickup_pin:
-            return SellerPickupConfirmationResponse(id=order.id, status="completed")
+            return SellerPickupConfirmationResponse(id=UUID(str(order.id)), status="completed")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invalid pickup PIN")
     if current_status != Order.STATUS_READY_FOR_PICKUP:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order is not ready for pickup")
@@ -297,7 +306,7 @@ def confirm_my_canteen_order_pickup(
     except Exception:
         db.rollback()
         raise
-    return SellerPickupConfirmationResponse(id=order.id, status="completed")
+    return SellerPickupConfirmationResponse(id=UUID(str(order.id)), status="completed")
 
 
 def _to_response(canteen: Canteen) -> CanteenResponse:
@@ -308,7 +317,7 @@ def _to_response(canteen: Canteen) -> CanteenResponse:
         location=canteen.location,
         is_open=canteen.is_open,
         products=[UUID(product_id) for product_id in canteen.products],
-        opening_hours=canteen.opening_hours,
+        opening_hours=[BusinessHoursEntry.model_validate(entry) for entry in canteen.opening_hours],
     )
 
 

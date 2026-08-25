@@ -128,7 +128,7 @@ class PaymentService:
             expiration_minutes = int(os.getenv("PIX_EXPIRATION_MINUTES", "15"))
             try:
                 charge = self.provider.create_pix_charge(
-                    reference=transaction.external_reference,
+                    reference=str(transaction.external_reference),
                     amount=amount,
                     expiration_seconds=expiration_minutes * 60,
                     order_id=str(order.id),
@@ -139,7 +139,7 @@ class PaymentService:
             transaction.external_reference = charge.reference
             transaction.expires_at = charge.expires_at
             transaction.pix_copy_paste = charge.copy_paste
-            order.status = OrderStatus.AWAITING_PAYMENT.value
+            order.status = OrderStatus.AWAITING_PAYMENT
         elif payment_method == "wallet":
             self._charge_wallet(transaction, order, user_id)
         else:
@@ -188,10 +188,10 @@ class PaymentService:
             transaction.failure_reason = "Insufficient wallet balance"
             return
 
-        wallet.available_balance = balance - amount
+        wallet.available_balance = float(balance - amount)
         transaction.status = "succeeded"
         transaction.confirmed_at = utc_now()
-        order.status = OrderStatus.PAID.value
+        order.status = OrderStatus.PAID
 
     def get_owned(self, transaction_id: str, user_id: str) -> PaymentTransactionModel:
         try:
@@ -236,7 +236,7 @@ class PaymentService:
             locked.status = "succeeded"
             locked.failure_reason = None
             locked.confirmed_at = utc_now()
-            order.status = OrderStatus.PAID.value
+            order.status = OrderStatus.PAID
         elif remote.status == "succeeded":
             locked.status = "failed"
             locked.failure_reason = "Provider payment amount mismatch"
@@ -320,7 +320,7 @@ class PaymentService:
             transaction.status = "succeeded"
             transaction.failure_reason = None
             transaction.confirmed_at = utc_now()
-            order.status = OrderStatus.PAID.value
+            order.status = OrderStatus.PAID
         self.db.commit()
         self.db.refresh(transaction)
         return transaction

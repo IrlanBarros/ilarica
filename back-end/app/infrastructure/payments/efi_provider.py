@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any, cast
 
 import httpx
 
@@ -66,13 +67,13 @@ class EfiPixProvider(PaymentProvider):
             except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
                 raise PaymentProviderError("Unable to authenticate with Efí Pix") from exc
 
-    def _request(self, method: str, path: str, **kwargs) -> dict:
+    def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         try:
             response = self.client.request(
                 method, path, headers={"Authorization": f"Bearer {self._token()}"}, **kwargs
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
         except (httpx.HTTPError, TypeError, ValueError) as exc:
             raise PaymentProviderError("Efí Pix request failed") from exc
 
