@@ -15,6 +15,8 @@ export interface User extends UserBase {
   is_email_validated: boolean;
 }
 
+export type AuthenticatedProfile = User;
+
 export interface UserCreate {
   name: string;
   email: string;

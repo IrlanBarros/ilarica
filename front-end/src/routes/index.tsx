@@ -1,23 +1,38 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+/* oxlint-disable react/only-export-components -- route-level lazy components intentionally share the router module */
+import { lazy } from 'react';
+import { createBrowserRouter } from 'react-router-dom';
 
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { RoleRoute } from '../components/RoleRoute';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { MainLayout } from '../layouts/MainLayout';
-import { CartPage } from '../pages/CartPage';
-import { CheckoutPage } from '../pages/CheckoutPage';
-import { CanteenPage } from '../pages/CanteenPage';
-import { CanteenDashboardPage } from '../pages/CanteenDashboardPage';
-import { HomePage } from '../pages/HomePage';
-import { LoginPage } from '../pages/LoginPage';
-import { MyOrdersPage } from '../pages/MyOrdersPage';
-import { OrderSuccessPage } from '../pages/OrderSuccessPage';
-import { PaymentConfirmedPage } from '../pages/PaymentConfirmedPage';
-import { PixPaymentPage } from '../pages/PixPaymentPage';
-import { RegisterPage } from '../pages/RegisterPage';
-import { RoleLandingPage } from '../pages/RoleLandingPage';
-import { SellerOrdersPage } from '../pages/SellerOrdersPage';
+const CartPage = lazy(() => import('../pages/CartPage').then((module) => ({ default: module.CartPage })));
+const CheckoutPage = lazy(() => import('../pages/CheckoutPage').then((module) => ({ default: module.CheckoutPage })));
+const CanteenPage = lazy(() => import('../pages/CanteenPage').then((module) => ({ default: module.CanteenPage })));
+const CanteenDashboardPage = lazy(() => import('../pages/CanteenDashboardPage').then((module) => ({ default: module.CanteenDashboardPage })));
+const HomePage = lazy(() => import('../pages/HomePage').then((module) => ({ default: module.HomePage })));
+const LoginPage = lazy(() => import('../pages/LoginPage').then((module) => ({ default: module.LoginPage })));
+const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })));
+const LegalPage = lazy(() => import('../pages/LegalPage').then((module) => ({ default: module.LegalPage })));
+const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
+const OrderDetailPage = lazy(() => import('../pages/OrderDetailPage').then((module) => ({ default: module.OrderDetailPage })));
+const PreferencesPage = lazy(() => import('../pages/PreferencesPage').then((module) => ({ default: module.PreferencesPage })));
+const SupportPage = lazy(() => import('../pages/SupportPage').then((module) => ({ default: module.SupportPage })));
+const MyOrdersPage = lazy(() => import('../pages/MyOrdersPage').then((module) => ({ default: module.MyOrdersPage })));
+const OrderSuccessPage = lazy(() => import('../pages/OrderSuccessPage').then((module) => ({ default: module.OrderSuccessPage })));
+const PaymentConfirmedPage = lazy(() => import('../pages/PaymentConfirmedPage').then((module) => ({ default: module.PaymentConfirmedPage })));
+const PixPaymentPage = lazy(() => import('../pages/PixPaymentPage').then((module) => ({ default: module.PixPaymentPage })));
+const ProfilePage = lazy(() => import('../pages/ProfilePage').then((module) => ({ default: module.ProfilePage })));
+const RegisterPage = lazy(() => import('../pages/RegisterPage').then((module) => ({ default: module.RegisterPage })));
+const RoleLandingPage = lazy(() => import('../pages/RoleLandingPage').then((module) => ({ default: module.RoleLandingPage })));
+const SellerOrdersPage = lazy(() => import('../pages/SellerOrdersPage').then((module) => ({ default: module.SellerOrdersPage })));
+const SellerSettingsPage = lazy(() => import('../pages/SellerSettingsPage').then((module) => ({ default: module.SellerSettingsPage })));
+const WalletPage = lazy(() => import('../pages/WalletPage').then((module) => ({ default: module.WalletPage })));
 
 export const router = createBrowserRouter([
+  { path: '/termos', element: <LegalPage kind="terms" /> },
+  { path: '/privacidade', element: <LegalPage kind="privacy" /> },
   {
     element: <AuthLayout />,
     children: [
@@ -30,8 +45,12 @@ export const router = createBrowserRouter([
         element: <RegisterPage />,
       },
       {
-        path: '*',
-        element: <Navigate to="/login" replace />,
+        path: '/esqueci-senha',
+        element: <ForgotPasswordPage />,
+      },
+      {
+        path: '/redefinir-senha',
+        element: <ResetPasswordPage />,
       },
     ],
   },
@@ -43,62 +62,83 @@ export const router = createBrowserRouter([
         children: [
           {
             path: '/',
-            element: <HomePage />,
+            element: <RoleRoute allowedRoles={['customer']}><HomePage /></RoleRoute>,
           },
           {
             path: '/cantina/:id',
-            element: <CanteenPage />,
+            element: <RoleRoute allowedRoles={['customer']}><CanteenPage /></RoleRoute>,
           },
           {
             path: '/carrinho',
-            element: <CartPage />,
+            element: <RoleRoute allowedRoles={['customer']}><CartPage /></RoleRoute>,
           },
           {
             path: '/checkout',
-            element: <CheckoutPage />,
+            element: <RoleRoute allowedRoles={['customer']}><CheckoutPage /></RoleRoute>,
           },
           {
             path: '/pedidos/:orderId/sucesso',
-            element: <OrderSuccessPage />,
+            element: <RoleRoute allowedRoles={['customer']}><OrderSuccessPage /></RoleRoute>,
           },
           {
             path: '/pedidos/:orderId/pagamento-confirmado',
-            element: <PaymentConfirmedPage />,
+            element: <RoleRoute allowedRoles={['customer']}><PaymentConfirmedPage /></RoleRoute>,
           },
           {
             path: '/pagamentos/:transactionId/pix',
-            element: <PixPaymentPage />,
+            element: <RoleRoute allowedRoles={['customer']}><PixPaymentPage /></RoleRoute>,
           },
           {
             path: '/pedidos',
-            element: <MyOrdersPage />,
+            element: <RoleRoute allowedRoles={['customer']}><MyOrdersPage /></RoleRoute>,
+          },
+          {
+            path: '/pedidos/:orderId',
+            element: <RoleRoute allowedRoles={['customer']}><OrderDetailPage /></RoleRoute>,
           },
           {
             path: '/carteira',
-            element: <RoleLandingPage title="Carteira" description="Consulte seu saldo e suas movimentações." />,
+            element: <RoleRoute allowedRoles={['customer']}><WalletPage /></RoleRoute>,
           },
           {
             path: '/perfil',
-            element: <RoleLandingPage title="Meu perfil" description="Confira e atualize seus dados pessoais." />,
+            element: <ProfilePage />,
+          },
+          {
+            path: '/preferencias',
+            element: <PreferencesPage />,
+          },
+          {
+            path: '/suporte',
+            element: <SupportPage />,
           },
           {
             path: '/entregas',
-            element: <RoleLandingPage title="Mural do entregador" description="Acompanhe e escolha as entregas disponíveis." />,
+            element: <RoleRoute allowedRoles={['courier']}><RoleLandingPage title="Mural do entregador" description="Acompanhe e escolha as entregas disponíveis." /></RoleRoute>,
           },
           {
             path: '/vendedor/cardapio',
-            element: <CanteenDashboardPage />,
+            element: <RoleRoute allowedRoles={['canteen_staff']}><CanteenDashboardPage /></RoleRoute>,
           },
           {
             path: '/vendedor/pedidos',
-            element: <SellerOrdersPage />,
+            element: <RoleRoute allowedRoles={['canteen_staff']}><SellerOrdersPage /></RoleRoute>,
+          },
+          {
+            path: '/vendedor/horarios',
+            element: <RoleRoute allowedRoles={['canteen_staff']}><SellerSettingsPage mode="hours" /></RoleRoute>,
+          },
+          {
+            path: '/vendedor/configuracoes',
+            element: <RoleRoute allowedRoles={['canteen_staff']}><SellerSettingsPage mode="settings" /></RoleRoute>,
           },
           {
             path: '/admin',
-            element: <RoleLandingPage title="Administração" description="Fundação da área administrativa do iLarica." />,
+            element: <RoleRoute allowedRoles={['admin']}><RoleLandingPage title="Administração" description="Fundação da área administrativa do iLarica." /></RoleRoute>,
           },
         ],
       },
     ],
   },
+  { path: '*', element: <NotFoundPage /> },
 ]);

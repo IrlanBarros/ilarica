@@ -17,6 +17,16 @@ html {
 
 body {
   min-width: 320px;
+  overflow-x: hidden;
   margin: 0;
   font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+}
+
+button, [role="button"] {
+  min-height: 44px;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #ff6b35;
+  outline-offset: 2px;
 }

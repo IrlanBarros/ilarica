@@ -44,6 +44,14 @@ export async function register(payload: UserCreate): Promise<User> {
   return response.data;
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  await apiClient.post('/auth/password-reset/request', { email });
+}
+
+export async function confirmPasswordReset(token: string, password: string): Promise<void> {
+  await apiClient.post('/auth/password-reset/confirm', { token, password });
+}
+
 export function logout(): void {
   tokenStorage.clear();
   redirectToLogin();

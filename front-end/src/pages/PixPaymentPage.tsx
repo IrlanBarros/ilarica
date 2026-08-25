@@ -6,7 +6,7 @@ import forkKnifeIcon from '../assets/figma/cart/fork-knife.svg';
 import profileImage from '../assets/figma/cart/profile.png';
 import searchIcon from '../assets/figma/cart/search.svg';
 import shoppingCartIcon from '../assets/figma/cart/shopping-cart.svg';
-import { ApiClientError } from '../api/http-error';
+import { ApiClientError, friendlyApiMessage } from '../api/http-error';
 import { getPaymentTransaction } from '../services';
 import { useAuthStore, useCartStore, usePaymentStore } from '../store';
 import type { PaymentTransaction } from '../types';
@@ -49,7 +49,7 @@ export function PixPaymentPage(): React.JSX.Element {
         setError('Este Pix expirou. Volte ao Checkout para gerar um novo pedido e pagamento.');
       } else if (response.status === 'failed') {
         clearPayment();
-        setError(response.failure_reason || 'O pagamento foi recusado.');
+        setError(friendlyApiMessage(new ApiClientError(response.failure_reason || 'Pagamento recusado', 402, response.failure_reason), 'O pagamento foi recusado.'));
       }
     } catch (requestError) {
       if (requestError instanceof ApiClientError && requestError.status === 401) {
@@ -79,9 +79,13 @@ export function PixPaymentPage(): React.JSX.Element {
 
   async function copyPix(): Promise<void> {
     if (!transaction?.pix_copy_paste) return;
-    await navigator.clipboard.writeText(transaction.pix_copy_paste);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(transaction.pix_copy_paste);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Não foi possível copiar o código Pix. Selecione o texto e copie manualmente.');
+    }
   }
 
   return (
@@ -90,7 +94,7 @@ export function PixPaymentPage(): React.JSX.Element {
         <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-6 px-5 sm:px-8 lg:px-16">
           <Link to="/" className="flex shrink-0 items-center gap-3" aria-label="Ir para o Mural"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ilarica-orange"><img src={forkKnifeIcon} alt="" className="h-6 w-6" /></span><span className="font-display text-xl font-extrabold text-[#7a1e1e] sm:text-[28px]">Ilarica</span></Link>
           <Link to="/" className="hidden h-11 max-w-[480px] flex-1 items-center gap-3 rounded-full border border-ilarica-line bg-[#fff1d6] px-4 text-[15px] text-ilarica-muted md:flex"><img src={searchIcon} alt="" className="h-[18px] w-[18px]" />Buscar lanches, doces ou vendedores...</Link>
-          <div className="flex shrink-0 items-center gap-3 lg:gap-6"><span className="flex items-center gap-2 rounded-full bg-[#fff0e8] px-3 py-2.5 sm:px-4"><img src={shoppingCartIcon} alt="" className="h-[18px] w-[18px]" /><span className="text-sm font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span></span><div className="hidden items-center gap-2.5 lg:flex"><img src={profileImage} alt="" className="h-9 w-9 rounded-full object-cover" /><span className="text-sm font-semibold">{user?.name || 'Perfil'}</span><img src={chevronDownIcon} alt="" className="h-3.5 w-3.5" /></div></div>
+          <div className="flex shrink-0 items-center gap-3 lg:gap-6"><span className="flex items-center gap-2 rounded-full bg-[#fff0e8] px-3 py-2.5 sm:px-4"><img src={shoppingCartIcon} alt="" className="h-[18px] w-[18px]" /><span className="text-sm font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span></span><Link to="/perfil" aria-label="Abrir meu perfil" className="flex min-h-11 items-center gap-2.5 rounded-full px-2 transition hover:bg-[#fff0e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ilarica-orange"><img src={profileImage} alt="" className="h-9 w-9 rounded-full object-cover" /><span className="hidden text-sm font-semibold lg:inline">{user?.name || 'Perfil'}</span><img src={chevronDownIcon} alt="" className="hidden h-3.5 w-3.5 lg:block" /></Link></div>
         </div>
       </header>
 

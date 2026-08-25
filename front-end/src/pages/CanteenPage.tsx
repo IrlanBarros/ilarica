@@ -48,6 +48,7 @@ export function CanteenPage(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
 
   const loadCanteen = useCallback(async (): Promise<void> => {
     if (!id) {
@@ -88,6 +89,7 @@ export function CanteenPage(): React.JSX.Element {
       setFeedback(`${product.name} adicionado ao carrinho.`);
     } catch {
       setFeedback('Seu carrinho contém itens de outra cantina. Esvazie-o antes de continuar.');
+      setUnavailableReason('Para evitar pedidos divididos, o carrinho aceita produtos de apenas uma cantina por vez. Esvazie o carrinho atual para trocar de cantina.');
     }
   }
 
@@ -159,6 +161,7 @@ export function CanteenPage(): React.JSX.Element {
             <div className="mt-3 rounded-2xl border border-dashed border-[#dcd8ce] bg-white p-8 text-center">
               <p className="font-bold">Nenhuma opção disponível hoje</p>
               <p className="mt-1 text-sm text-ilarica-muted">Consulte novamente mais tarde.</p>
+              <Link to="/" className="mt-5 inline-flex rounded-full bg-ilarica-orange px-5 py-2.5 text-sm font-bold text-white">Ver outras cantinas</Link>
             </div>
           ) : (
             <div className="mt-2 grid gap-3 md:grid-cols-2">
@@ -189,6 +192,7 @@ export function CanteenPage(): React.JSX.Element {
               ))}
             </div>
           )}
+          {!canteen.is_open && <button type="button" onClick={() => setUnavailableReason('A cantina pausou temporariamente o recebimento de pedidos. Seus itens atuais não serão cobrados e você pode consultar outras cantinas.')} className="mt-4 min-h-11 font-bold text-ilarica-orange underline">Por que não posso adicionar itens?</button>}
         </section>
       </div>
 
@@ -211,6 +215,7 @@ export function CanteenPage(): React.JSX.Element {
           </div>
         </aside>
       )}
+      {unavailableReason && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setUnavailableReason(null); }}><section role="alertdialog" aria-modal="true" aria-labelledby="unavailable-title" className="w-full max-w-md rounded-2xl bg-white p-6"><h2 id="unavailable-title" className="font-display text-xl font-extrabold text-[#7a1e1e]">Item indisponível</h2><p className="mt-2 text-sm leading-relaxed text-ilarica-muted">{unavailableReason}</p><div className="mt-6 flex flex-wrap justify-end gap-3"><Link to="/" className="inline-flex min-h-11 items-center rounded-xl bg-[#fff0e8] px-4 text-sm font-bold text-ilarica-orange">Ver outras cantinas</Link><button type="button" onClick={() => setUnavailableReason(null)} className="min-h-11 rounded-xl bg-ilarica-orange px-5 text-sm font-bold text-white">Entendi</button></div></section></div>}
     </main>
   );
 }

@@ -17,6 +17,15 @@ interface PaymentState {
   clear: () => void;
 }
 
+function isPendingPayment(value: unknown): value is PendingPayment {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<PendingPayment>;
+  return typeof candidate.orderId === 'string'
+    && (candidate.transactionId === null || typeof candidate.transactionId === 'string')
+    && typeof candidate.idempotencyKey === 'string'
+    && (candidate.method === 'pix' || candidate.method === 'wallet');
+}
+
 export const usePaymentStore = create<PaymentState>()(persist((set) => ({
   pending: null,
   start(payment): void {
@@ -30,4 +39,12 @@ export const usePaymentStore = create<PaymentState>()(persist((set) => ({
   clear(): void {
     set({ pending: null });
   },
-}), { name: 'ilarica-payment', version: 1 }));
+}), {
+  name: 'ilarica-payment',
+  version: 1,
+  partialize: (state) => ({ pending: state.pending }),
+  merge: (persistedState, currentState) => {
+    const candidate = (persistedState as Partial<PaymentState>).pending;
+    return { ...currentState, pending: isPendingPayment(candidate) ? candidate : null };
+  },
+}));

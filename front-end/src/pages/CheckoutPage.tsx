@@ -6,7 +6,7 @@ import forkKnifeIcon from '../assets/figma/cart/fork-knife.svg';
 import profileImage from '../assets/figma/cart/profile.png';
 import searchIcon from '../assets/figma/cart/search.svg';
 import shoppingCartIcon from '../assets/figma/cart/shopping-cart.svg';
-import { ApiClientError } from '../api/http-error';
+import { ApiClientError, friendlyApiMessage } from '../api/http-error';
 import { buildOrderPayload } from '../lib/build-order-payload';
 import { createOrder, createPaymentTransaction, getMyWallet, listDropOffZones } from '../services';
 import { useAuthStore, useCartStore, usePaymentStore } from '../store';
@@ -23,8 +23,8 @@ function checkoutErrorMessage(error: unknown): string {
   if (error.status === 401) return 'Sua sessão expirou. Entre novamente para confirmar o pedido.';
   if (error.status === 403) return 'Sua conta não tem permissão para criar este pedido.';
   if (error.status === 404) return 'Um produto, cantina ou ponto selecionado não está mais disponível.';
-  if (error.status === 402) return error.message || 'Pagamento recusado ou saldo insuficiente.';
-  if (error.status === 409) return error.message || 'O pedido já foi pago ou existe outro pagamento em andamento.';
+  if (error.status === 402) return friendlyApiMessage(error, 'Pagamento recusado ou saldo insuficiente.');
+  if (error.status === 409) return friendlyApiMessage(error, 'O pedido já foi pago ou existe outro pagamento em andamento.');
   if (error.status === 400 || error.status === 422) return 'Os dados do pedido são inválidos. Revise o carrinho e o ponto selecionado.';
   return 'O serviço está indisponível no momento. Tente novamente em instantes.';
 }
@@ -167,14 +167,14 @@ export function CheckoutPage(): React.JSX.Element {
             <Link to="/carrinho" className="flex items-center gap-2 rounded-full bg-[#fff0e8] px-3 py-2.5 sm:px-4">
               <img src={shoppingCartIcon} alt="" className="h-[18px] w-[18px]" /><span className="text-sm font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span>
             </Link>
-            <div className="hidden items-center gap-2.5 lg:flex"><img src={profileImage} alt="" className="h-9 w-9 rounded-full object-cover" /><span className="text-sm font-semibold">{user?.name || 'Perfil'}</span><img src={chevronDownIcon} alt="" className="h-3.5 w-3.5" /></div>
+            <Link to="/perfil" aria-label="Abrir meu perfil" className="flex min-h-11 items-center gap-2.5 rounded-full px-2 transition hover:bg-[#fff0e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ilarica-orange"><img src={profileImage} alt="" className="h-9 w-9 rounded-full object-cover" /><span className="hidden text-sm font-semibold lg:inline">{user?.name || 'Perfil'}</span><img src={chevronDownIcon} alt="" className="hidden h-3.5 w-3.5 lg:block" /></Link>
           </div>
         </div>
       </header>
 
       <form onSubmit={handleSubmit} className="mx-auto grid w-full max-w-[1440px] gap-6 px-5 py-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-10 lg:px-16 lg:py-10">
         <section className="rounded-3xl bg-white p-5 sm:p-8" aria-labelledby="checkout-heading">
-          <h1 id="checkout-heading" className="font-display text-2xl font-extrabold text-[#7a1e1e] sm:text-[28px]">Finalizar Pedido</h1>
+          <Link to="/carrinho" className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-ilarica-muted hover:text-[#7a1e1e]">← Voltar ao carrinho</Link><h1 id="checkout-heading" className="font-display text-2xl font-extrabold text-[#7a1e1e] sm:text-[28px]">Finalizar Pedido</h1>
           <fieldset className="mt-7">
             <legend className="font-display text-lg font-bold text-[#7a1e1e]">Como você quer receber?</legend>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -225,7 +225,7 @@ export function CheckoutPage(): React.JSX.Element {
           </dl>
           <div className="mt-4 flex items-center justify-between border-t border-ilarica-line pt-4 font-display font-extrabold text-[#7a1e1e]"><span className="text-lg">Total do Pedido</span><span className="text-[22px]">{currencyFormatter.format(subtotal)}</span></div>
           {error && <p role="alert" className="mt-5 rounded-xl border border-[#ffc9c2] bg-[#fff1f0] px-4 py-3 text-sm font-semibold text-[#a3261b]">{error}</p>}
-          <button type="submit" disabled={isSubmitting || isLoadingZones || !selectedZoneId} className="mt-6 w-full rounded-full bg-ilarica-orange px-6 py-4 text-base font-bold text-white transition hover:bg-[#ed5925] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="submit" disabled={isSubmitting || isLoadingZones || (fulfillmentMethod === 'delivery' && !selectedZoneId)} className="mt-6 w-full rounded-full bg-ilarica-orange px-6 py-4 text-base font-bold text-white transition hover:bg-[#ed5925] disabled:cursor-not-allowed disabled:opacity-60" aria-busy={isSubmitting}>
             {isSubmitting ? 'Processando com segurança...' : 'Confirmar e Pagar'}
           </button>
           <Link to="/carrinho" className="mt-4 block text-center text-sm font-bold text-[#7a1e1e] hover:underline">Voltar ao carrinho</Link>

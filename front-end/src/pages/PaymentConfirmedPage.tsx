@@ -61,11 +61,11 @@ export function PaymentConfirmedPage(): React.JSX.Element {
               <img src={shoppingCartIcon} alt="" className="h-[18px] w-[18px]" />
               <span className="text-sm font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span>
             </Link>
-            <div className="hidden items-center gap-2.5 lg:flex">
+            <Link to="/perfil" aria-label="Abrir meu perfil" className="flex min-h-11 items-center gap-2.5 rounded-full px-2 transition hover:bg-[#fff0e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ilarica-orange">
               <img src={profileImage} alt="" className="h-9 w-9 rounded-full object-cover" />
-              <span className="text-sm font-semibold">{user?.name || 'Perfil'}</span>
-              <img src={chevronDownIcon} alt="" className="h-3.5 w-3.5" />
-            </div>
+              <span className="hidden text-sm font-semibold lg:inline">{user?.name || 'Perfil'}</span>
+              <img src={chevronDownIcon} alt="" className="hidden h-3.5 w-3.5 lg:block" />
+            </Link>
           </div>
         </div>
       </header>

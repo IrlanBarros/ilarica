@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import chevronDownIcon from '../assets/figma/cart/chevron-down.svg';
 import forkKnifeIcon from '../assets/figma/cart/fork-knife.svg';
@@ -7,21 +8,21 @@ import shoppingCartIcon from '../assets/figma/cart/shopping-cart.svg';
 import vendorImage from '../assets/figma/canteen/vendor-hero.png';
 import { Button, Card, ConfirmDialog, Input } from '../components/ui';
 import { useSellerStore } from '../store';
-import type { BusinessHoursEntry, SellerMenuItem, SellerSection } from '../types';
+import type { BusinessHoursEntry, SellerMenuItem } from '../types';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const sections: Array<{ id: SellerSection; label: string }> = [
-  { id: 'menu', label: 'Meu Cardápio' },
-  { id: 'orders', label: 'Pedidos Recebidos' },
-  { id: 'hours', label: 'Horários' },
-  { id: 'settings', label: 'Configurações' },
+const sections = [
+  { to: '/vendedor/cardapio', label: 'Meu Cardápio' },
+  { to: '/vendedor/pedidos', label: 'Pedidos Recebidos' },
+  { to: '/vendedor/horarios', label: 'Horários' },
+  { to: '/vendedor/configuracoes', label: 'Configurações' },
 ];
 
 function AvailabilitySwitch({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }): React.JSX.Element {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? 'bg-[#26a146]' : 'bg-[#929ca6]'}`}>
-      <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition ${checked ? 'left-[23px]' : 'left-[3px]'}`} />
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className={`relative h-11 w-14 shrink-0 rounded-full transition ${checked ? 'bg-[#26a146]' : 'bg-[#929ca6]'}`}>
+      <span className={`absolute top-2 h-7 w-7 rounded-full bg-white shadow-sm transition ${checked ? 'left-6' : 'left-1'}`} />
     </button>
   );
 }
@@ -30,15 +31,15 @@ function SellerHeader(): React.JSX.Element {
   return (
     <header className="border-b border-[#efe6d7] bg-white">
       <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-5 px-5 sm:px-8 lg:px-16">
-        <div className="flex shrink-0 items-center gap-3">
+        <Link to="/vendedor/pedidos" aria-label="Ir para o painel inicial do vendedor" className="flex shrink-0 items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ilarica-orange"><img src={forkKnifeIcon} alt="" className="h-6 w-6" /></span>
           <span className="font-display text-[27px] font-extrabold text-[#7a1e1e]">Ilarica</span>
           <span className="hidden rounded-full bg-[#fff0e8] px-2.5 py-1 text-[10px] font-bold uppercase text-ilarica-orange sm:inline">Campus Centro</span>
-        </div>
+        </Link>
         <div className="hidden h-11 max-w-[480px] flex-1 items-center gap-3 rounded-full border border-[#f0dfc2] bg-[#fff1d6] px-4 text-sm text-ilarica-muted md:flex"><img src={searchIcon} alt="" className="h-[18px] w-[18px]" />Buscar lanches, doces ou vendedores...</div>
         <div className="flex shrink-0 items-center gap-4">
           <span className="hidden items-center gap-2 rounded-full bg-[#fff0e8] px-4 py-2.5 text-sm font-bold text-ilarica-orange sm:flex"><img src={shoppingCartIcon} alt="" className="h-[18px] w-[18px]" />0 itens</span>
-          <div className="flex items-center gap-2"><img src={vendorImage} alt="" className="h-9 w-9 rounded-full object-cover" /><span className="hidden text-sm font-bold sm:inline">Cantina</span><img src={chevronDownIcon} alt="" className="h-3.5 w-3.5" /></div>
+          <Link to="/perfil" aria-label="Abrir meu perfil" className="flex min-h-11 items-center gap-2 rounded-full px-2 transition hover:bg-[#fff0e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ilarica-orange"><img src={vendorImage} alt="" className="h-9 w-9 rounded-full object-cover" /><span className="hidden text-sm font-bold sm:inline">Cantina</span><img src={chevronDownIcon} alt="" className="h-3.5 w-3.5" /></Link>
         </div>
       </div>
     </header>
@@ -46,13 +47,11 @@ function SellerHeader(): React.JSX.Element {
 }
 
 function SellerSidebar(): React.JSX.Element {
-  const activeSection = useSellerStore((state) => state.activeSection);
-  const setActiveSection = useSellerStore((state) => state.setActiveSection);
   return (
     <aside className="h-fit rounded-2xl bg-white p-4 lg:sticky lg:top-6 lg:w-[280px] lg:p-5">
       <h2 className="mb-2 font-display text-lg font-extrabold text-[#7a1e1e]">Gerenciamento</h2>
       <nav className="flex gap-2 overflow-x-auto lg:flex-col" aria-label="Gerenciamento da cantina">
-        {sections.map((section) => <button key={section.id} type="button" onClick={() => setActiveSection(section.id)} className={`shrink-0 rounded-lg px-3 py-3 text-left text-sm transition lg:w-full ${activeSection === section.id ? 'bg-[#fff0e8] font-bold text-ilarica-orange' : 'text-ilarica-muted hover:bg-[#fffaf2]'}`}>{section.label}</button>)}
+        {sections.map((section) => <Link key={section.to} to={section.to} aria-current={section.to === '/vendedor/cardapio' ? 'page' : undefined} className={`shrink-0 rounded-lg px-3 py-3 text-left text-sm transition lg:w-full ${section.to === '/vendedor/cardapio' ? 'bg-[#fff0e8] font-bold text-ilarica-orange' : 'text-ilarica-muted hover:bg-[#fffaf2]'}`}>{section.label}</Link>)}
       </nav>
     </aside>
   );
@@ -119,8 +118,6 @@ function BusinessHoursPanel({ onSaved }: { onSaved: (success: boolean) => void }
 
 export function CanteenDashboardPage(): React.JSX.Element {
   const items = useSellerStore((state) => state.items);
-  const activeSection = useSellerStore((state) => state.activeSection);
-  const setActiveSection = useSellerStore((state) => state.setActiveSection);
   const loadCatalog = useSellerStore((state) => state.loadCatalog);
   const createItem = useSellerStore((state) => state.createItem);
   const updateItem = useSellerStore((state) => state.updateItem);
@@ -159,11 +156,10 @@ export function CanteenDashboardPage(): React.JSX.Element {
         <SellerSidebar />
         <section>
           <div className="flex flex-wrap items-start justify-between gap-5"><div><h1 className="font-display text-4xl font-extrabold text-[#7a1e1e]">Meu Cardápio</h1><p className="mt-1 text-base text-ilarica-muted">Gerencie seus produtos, preços e disponibilidade na plataforma.</p></div><Button leftIcon={<span aria-hidden="true" className="text-xl font-normal">+</span>} className="h-12 rounded-full bg-ilarica-orange px-7 hover:bg-[#ed5925]" onClick={() => openForm()}>Adicionar Item</Button></div>
-          {activeSection !== 'menu' && <div className="mt-6 rounded-xl border border-[#f2d49f] bg-white px-4 py-3 text-sm text-[#7a1e1e]">A seção “{sections.find((section) => section.id === activeSection)?.label}” será implementada na próxima etapa visual. <button className="font-bold underline" onClick={() => setActiveSection('menu')}>Voltar ao cardápio</button></div>}
           {notice && <p role="status" aria-live="polite" className="mt-5 rounded-xl border border-[#f1d9b4] bg-white px-4 py-3 text-sm text-[#7a1e1e]">{notice}</p>}
           {catalogError && <p role="alert" className="mt-5 rounded-xl bg-[#ffe7e7] p-4 text-[#a32020]">{catalogError}</p>}
           {showForm && <Card className="mt-6 border-[#eadfce] p-5"><form onSubmit={(event) => { void submitItem(event); }} className="grid gap-4 sm:grid-cols-2"><Input required minLength={2} disabled={savingItem} placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><Input required type="number" min="0.01" step="0.01" disabled={savingItem} placeholder="Preço" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input disabled={savingItem} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /><Input disabled={savingItem} placeholder="URL da imagem" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /><div className="flex gap-3 sm:col-span-2"><Button type="submit" isLoading={savingItem} loadingText="Salvando...">Salvar produto</Button><Button type="button" variant="secondary" disabled={savingItem} onClick={() => setShowForm(false)}>Cancelar</Button></div></form></Card>}
-          <div className="mt-7 space-y-4">{isLoading && <Card className="p-8 text-center">Carregando cardápio...</Card>}{!isLoading && items.map((item) => <MenuItemCard key={item.id} item={item} onEdit={openForm} onNotice={setNotice} />)}{!isLoading && items.length === 0 && <Card className="border-dashed p-8 text-center text-ilarica-muted">Nenhum produto cadastrado.</Card>}</div>
+          <div className="mt-7 space-y-4">{isLoading && <Card className="p-8 text-center"><span className="mx-auto block h-7 w-7 animate-spin rounded-full border-2 border-ilarica-orange border-t-transparent" aria-hidden="true" /><p className="mt-3 text-sm text-ilarica-muted">Carregando cardápio...</p></Card>}{!isLoading && items.map((item) => <MenuItemCard key={item.id} item={item} onEdit={openForm} onNotice={setNotice} />)}{!isLoading && items.length === 0 && <Card className="border-dashed p-8 text-center"><p className="font-display text-lg font-bold text-[#7a1e1e]">Seu cardápio ainda está vazio</p><p className="mt-1 text-sm text-ilarica-muted">Cadastre o primeiro produto para começar a receber pedidos.</p><Button className="mt-5 bg-ilarica-orange hover:bg-[#ed5925]" onClick={() => openForm()}>Adicionar primeiro produto</Button></Card>}</div>
           <BusinessHoursPanel onSaved={(success) => setNotice(success ? 'Horários salvos com sucesso.' : 'Não foi possível salvar os horários. Tente novamente.')} />
         </section>
       </div>

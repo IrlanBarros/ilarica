@@ -105,11 +105,11 @@ export function CartPage(): React.JSX.Element {
               <img src={shoppingCartIcon} alt="" className="h-[18px] w-[18px]" />
               <span className="text-sm font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span>
             </div>
-            <div className="hidden items-center gap-2.5 lg:flex">
+            <Link to="/perfil" aria-label="Abrir meu perfil" className="flex min-h-11 items-center gap-2.5 rounded-full px-2 transition hover:bg-[#fff0e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ilarica-orange">
               <img src={profileImage} alt="" className="h-9 w-9 rounded-full object-cover" />
-              <span className="text-sm font-semibold">{user?.name || 'Perfil'}</span>
-              <img src={chevronDownIcon} alt="" className="h-3.5 w-3.5" />
-            </div>
+              <span className="hidden text-sm font-semibold lg:inline">{user?.name || 'Perfil'}</span>
+              <img src={chevronDownIcon} alt="" className="hidden h-3.5 w-3.5 lg:block" />
+            </Link>
           </div>
         </div>
       </header>
@@ -161,8 +161,8 @@ export function CartPage(): React.JSX.Element {
               <h2 className="font-display text-sm font-bold text-[#7a1e1e] sm:text-base">Retirar Pessoalmente no Bloco</h2>
               <p className="mt-1 text-xs text-ilarica-muted">Retire na cantina para zerar a taxa de entrega rápida de R$ 2,00</p>
             </div>
-            <button type="button" role="switch" aria-checked={isPickup} aria-label="Retirar pessoalmente" onClick={() => setIsPickup((value) => !value)} className={`relative h-7 w-14 shrink-0 rounded-full transition ${isPickup ? 'bg-ilarica-orange' : 'bg-[#c9c5bc]'}`}>
-              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${isPickup ? 'left-8' : 'left-1'}`} />
+            <button type="button" role="switch" aria-checked={isPickup} aria-label="Retirar pessoalmente" onClick={() => setIsPickup((value) => !value)} className={`relative h-11 w-14 shrink-0 rounded-full transition ${isPickup ? 'bg-ilarica-orange' : 'bg-[#c9c5bc]'}`}>
+              <span className={`absolute top-2 h-7 w-7 rounded-full bg-white shadow transition ${isPickup ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
 

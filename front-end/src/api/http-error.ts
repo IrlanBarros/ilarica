@@ -37,3 +37,18 @@ export function normalizeApiError(error: unknown): ApiClientError {
 
   return new ApiClientError('An unexpected API error occurred.', null, null);
 }
+
+export function friendlyApiMessage(error: unknown, fallback = 'Não foi possível concluir a operação. Tente novamente.'): string {
+  const normalized = normalizeApiError(error);
+  const message = normalized.message.toLowerCase();
+  if (normalized.status === 401) return 'Sua sessão expirou. Entre novamente para continuar.';
+  if (normalized.status === 403) return 'Você não tem permissão para realizar esta ação.';
+  if (normalized.status === 404) return 'O conteúdo solicitado não foi encontrado.';
+  if (normalized.status === 422 || normalized.status === 400) return 'Revise os dados informados e tente novamente.';
+  if (message.includes('saldo') || message.includes('balance')) return 'Saldo insuficiente para concluir o pagamento.';
+  if (message.includes('unavailable') || message.includes('indispon')) return 'Um dos itens não está mais disponível.';
+  if (message.includes('already paid')) return 'Este pedido já foi pago.';
+  if (message.includes('expired') || message.includes('expir')) return 'Este pagamento expirou. Gere uma nova cobrança.';
+  if (normalized.status !== null && normalized.status >= 500) return 'O serviço está temporariamente indisponível. Tente novamente em instantes.';
+  return fallback;
+}
