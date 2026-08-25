@@ -218,12 +218,32 @@ def create_drop_off_zones(session) -> list[DropOffZoneModel]:
     zones: list[DropOffZoneModel] = []
 
     try:
-        for zone_name in ["Bloco A", "Biblioteca Central", "Praça do Campus", "Residência Norte"]:
+        macro_zones = [
+            "Bloco A",
+            "Bloco B",
+            "Bloco C",
+            "Bloco D",
+            "Bloco E",
+            "Bloco F",
+            "Bloco G",
+            "Bloco H",
+            "Bloco I",
+            "Bloco J",
+            "Bloco K",
+            "Bloco L",
+            "Bloco M",
+            "Bloco N",
+            "Bloco R",
+            "Mirante",
+            "Quadra 1",
+            "Quadra 2",
+        ]
+        for zone_name in macro_zones:
             zone = DropOffZoneModel(
                 id=uuid4(),
                 name=zone_name,
-                description=f"Zona de entrega para {zone_name.lower()}.",
-                capacity=random.randint(12, 30),
+                description="Zona macro de entrega no campus.",
+                capacity_total=200,
                 is_active=True,
             )
             session.add(zone)

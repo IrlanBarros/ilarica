@@ -25,6 +25,7 @@ describe('order.service', () => {
         customer_id: 'user-1',
         canteen_id: 'canteen-1',
         drop_off_zone_id: 'zone-1',
+        location_details: null,
         status: 'draft',
         total_amount: '12.50',
         items: [],
@@ -45,6 +46,7 @@ describe('order.service', () => {
       customer_id: 'user-1',
       canteen_id: 'canteen-1',
       drop_off_zone_id: 'zone-1',
+      location_details: 'Sala 42',
       items: [
         {
           product_id: 'product-1',
@@ -58,6 +60,7 @@ describe('order.service', () => {
       customer_id: 'user-1',
       canteen_id: 'canteen-1',
       drop_off_zone_id: 'zone-1',
+      location_details: 'Sala 42',
       status: 'draft',
       total_amount: '25.00',
       items: [
@@ -93,6 +96,7 @@ describe('order.service', () => {
       customer_id: 'user-1',
       canteen_id: 'canteen-1',
       drop_off_zone_id: 'zone-1',
+      location_details: null,
       status: 'ready_for_pickup',
       total_amount: '25.00',
       items: [],

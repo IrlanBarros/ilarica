@@ -12,6 +12,7 @@ const orders: SellerOrder[] = [
     customer: { id: '20000000-0000-4000-8000-000000000001', name: 'Ana Clara' },
     fulfillment_type: 'delivery',
     destination: { id: '30000000-0000-4000-8000-000000000001', name: 'Bloco C', description: 'Sala 204' },
+    location_details: 'Sala 204',
     items: [{ id: '50000000-0000-4000-8000-000000000001', product_id: '60000000-0000-4000-8000-000000000001', name: 'Coxinha', quantity: 2, unit_price: '9.00' }],
   },
   {
@@ -19,6 +20,7 @@ const orders: SellerOrder[] = [
     customer: { id: '20000000-0000-4000-8000-000000000002', name: 'Marina Alves' },
     fulfillment_type: 'delivery',
     destination: { id: '30000000-0000-4000-8000-000000000002', name: 'Bloco A', description: null },
+    location_details: null,
     items: [{ id: '50000000-0000-4000-8000-000000000002', product_id: '60000000-0000-4000-8000-000000000002', name: 'Pastel', quantity: 1, unit_price: '13.50' }],
   },
 ];
@@ -43,6 +45,7 @@ describe('SellerOrdersPage', () => {
   it('organizes server orders by operational stage', () => {
     render(<MemoryRouter><SellerOrdersPage /></MemoryRouter>);
     expect(screen.getByText('Pedido #40810000')).toBeTruthy();
+    expect(screen.getByText('Bloco C - Sala 204')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: /Em preparo/ }));
     expect(screen.getByText('Pedido #40790000')).toBeTruthy();
     expect(screen.queryByText('Pedido #40810000')).toBeNull();
@@ -76,7 +79,7 @@ describe('SellerOrdersPage', () => {
   });
 
   it('validates a four-digit PIN and removes a completed pickup from the active queue', async () => {
-    const ready: SellerOrder = { ...orders[0], status: 'ready_for_pickup', fulfillment_type: 'pickup', destination: null };
+    const ready: SellerOrder = { ...orders[0], status: 'ready_for_pickup', fulfillment_type: 'pickup', destination: null, location_details: null };
     useSellerStore.setState({ orders: [ready], orderStage: 'ready' });
     render(<MemoryRouter><SellerOrdersPage /></MemoryRouter>);
 

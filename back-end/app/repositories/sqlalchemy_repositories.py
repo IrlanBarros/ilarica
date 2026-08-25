@@ -109,6 +109,7 @@ def _to_domain_order(model: OrderModel) -> Order:
         pickup_pin=model.pickup_pin,
         canteen_id=str(model.canteen_id),
         drop_off_zone_id=str(model.drop_off_zone_id) if model.drop_off_zone_id else None,
+        location_details=model.location_details,
         fulfillment_type=model.fulfillment_type,
         delivery_ride_id=str(model.delivery_ride.id) if getattr(model, "delivery_ride", None) else None,
     )
@@ -340,6 +341,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
                 customer_id=UUID(order.user_id),
                 canteen_id=UUID(order.canteen_id),
                 drop_off_zone_id=UUID(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+                location_details=order.location_details,
                 fulfillment_type=order.fulfillment_type,
                 status=OrderStatus(order.status),
                 total_amount=float(order.total_with_delivery()),
@@ -350,6 +352,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             model.status = OrderStatus(order.status) if isinstance(order.status, str) else order.status
             model.total_amount = float(order.total_with_delivery())
             model.pickup_pin = order.pickup_pin
+            model.location_details = order.location_details
         self.session.flush()
         return order
 
@@ -359,6 +362,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             customer_id=UUID(order.user_id),
             canteen_id=UUID(order.canteen_id),
             drop_off_zone_id=UUID(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+            location_details=order.location_details,
             fulfillment_type=order.fulfillment_type,
             status=OrderStatus(order.status),
             total_amount=float(order.total_with_delivery()),

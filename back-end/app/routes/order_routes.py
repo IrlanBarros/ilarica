@@ -29,6 +29,7 @@ def _order_response(order: OrderModel | CreatedOrder, *, include_pin: bool = Tru
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
         drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        location_details=order.location_details,
         fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
         status=order.status.value if hasattr(order.status, "value") else str(order.status),
         total_amount=Decimal(str(order.total_amount)),
@@ -72,6 +73,7 @@ def create_order(
             canteen_id=payload.canteen_id,
             fulfillment_type=payload.fulfillment_type,
             drop_off_zone_id=payload.drop_off_zone_id,
+            location_details=payload.location_details,
             items=[(item.product_id, item.quantity) for item in payload.items],
         )
     except OrderCreationError as exc:
@@ -112,6 +114,7 @@ def list_my_orders(
                 id=UUID(str(order.drop_off_zone.id)), name=order.drop_off_zone.name,
                 description=order.drop_off_zone.description,
             ) if order.drop_off_zone else None,
+            location_details=order.location_details,
             canteen=CustomerOrderCanteenResponse(
                 id=UUID(str(order.canteen.id)), name=order.canteen.name,
                 location=order.canteen.location,
@@ -180,6 +183,7 @@ def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
         drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        location_details=order.location_details,
         fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
         status=str(order.status),
         total_amount=Decimal(str(order.total_amount)),

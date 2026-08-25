@@ -39,7 +39,7 @@ def _catalog(
         id=uuid4(), canteen_id=canteen.id, name="Coxinha QA", description=None,
         price="7.50", is_fast_stock_enabled=False, is_active=product_active,
     )
-    zone = DropOffZoneModel(id=uuid4(), name="Bloco C", description=None, capacity=10, is_active=True)
+    zone = DropOffZoneModel(id=uuid4(), name="Bloco C", description=None, capacity_total=10, is_active=True)
     db_session.add_all([staff, canteen, product, zone])
     db_session.commit()
     return str(canteen.id), str(product.id), str(zone.id)
@@ -50,6 +50,7 @@ def _payload(canteen_id: str, product_id: str, zone_id: str, customer_id: str = 
         "customer_id": customer_id,
         "canteen_id": canteen_id,
         "drop_off_zone_id": zone_id,
+        "location_details": "Sala 42",
         "items": [{"product_id": product_id, "quantity": 2}],
     }
 
@@ -60,11 +61,13 @@ def test_create_order_uses_server_price_and_commits_items(db_session: Session, m
     response = create_order(OrderCreate(**_payload(canteen_id, product_id, zone_id)), db_session, mock_current_user)
 
     assert str(response.customer_id) == str(AUTH_USER_ID)
+    assert response.location_details == "Sala 42"
     assert response.total_amount == 15
     assert response.items[0].unit_price == 7.5
     order_id = UUID(response.id).hex
     assert db_session.execute(text("SELECT count(*) FROM orders WHERE id = :id"), {"id": order_id}).scalar_one() == 1
     assert db_session.execute(text("SELECT count(*) FROM order_items WHERE order_id = :id"), {"id": order_id}).scalar_one() == 1
+    assert db_session.execute(text("SELECT location_details FROM orders WHERE id = :id"), {"id": order_id}).scalar_one() == "Sala 42"
 
 
 def test_create_order_rejects_customer_impersonation(db_session: Session, mock_current_user: User) -> None:

@@ -85,6 +85,7 @@ def _seller_order_response(order: OrderModel) -> SellerOrderResponse:
             name=order.drop_off_zone.name,
             description=order.drop_off_zone.description,
         ) if order.drop_off_zone else None,
+        location_details=order.location_details,
         fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
     )
 

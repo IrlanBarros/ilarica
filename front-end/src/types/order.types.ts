@@ -38,6 +38,7 @@ export interface OrderBase {
   canteen_id: string;
   fulfillment_type?: FulfillmentType;
   drop_off_zone_id: string | null;
+  location_details: string | null;
   status: OrderStatus;
   total_amount: Money;
 }
@@ -53,6 +54,7 @@ export interface OrderCreate {
   canteen_id: string;
   fulfillment_type?: FulfillmentType;
   drop_off_zone_id: string | null;
+  location_details: string | null;
   items: [OrderItemCreate, ...OrderItemCreate[]];
 }
 
@@ -70,6 +72,7 @@ export interface CustomerOrder {
   items: Array<{ id: string; product_id: string; name: string; quantity: number; unit_price: Money }>;
   total_amount: Money;
   destination: { id: string; name: string; description: string | null } | null;
+  location_details: string | null;
   canteen: { id: string; name: string; location: string };
   pickup_pin: string | null;
 }

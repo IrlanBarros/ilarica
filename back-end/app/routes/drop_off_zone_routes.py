@@ -7,11 +7,25 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.database.models import DropOffZoneModel
+from app.database.models import DropOffZoneModel, OrderModel, OrderStatus
 from app.database.session import get_db
 from app.schemas.drop_off_zone_schemas import DropOffZoneCreate, DropOffZoneResponse, DropOffZoneUpdate
 
 router = APIRouter(prefix="/drop-off-zones", tags=["Drop-off Zones"])
+
+
+def _zone_response(db: Session, zone: DropOffZoneModel) -> DropOffZoneResponse:
+    current_load = db.query(OrderModel).filter(
+        OrderModel.drop_off_zone_id == zone.id,
+        OrderModel.status != OrderStatus.COMPLETED,
+    ).count()
+    return DropOffZoneResponse(
+        id=str(zone.id),
+        name=zone.name,
+        capacity_total=zone.capacity_total,
+        current_load=current_load,
+        is_active=zone.is_active,
+    )
 
 
 @router.post(
@@ -27,19 +41,13 @@ def create_drop_off_zone(payload: DropOffZoneCreate, db: Session = Depends(get_d
         id=uuid4(),
         name=payload.name,
         description=None,
-        capacity=payload.capacity_total,
+        capacity_total=payload.capacity_total,
         is_active=payload.is_active,
     )
     db.add(zone)
     db.commit()
     db.refresh(zone)
-    return DropOffZoneResponse(
-        id=str(zone.id),
-        name=zone.name,
-        capacity_total=zone.capacity,
-        current_load=0,
-        is_active=zone.is_active,
-    )
+    return _zone_response(db, zone)
 
 
 @router.get(
@@ -49,17 +57,8 @@ def create_drop_off_zone(payload: DropOffZoneCreate, db: Session = Depends(get_d
 )
 def list_drop_off_zones(db: Session = Depends(get_db)) -> list[DropOffZoneResponse]:
     """List all drop-off zones."""
-    zones = db.query(DropOffZoneModel).all()
-    return [
-        DropOffZoneResponse(
-            id=str(zone.id),
-            name=zone.name,
-            capacity_total=zone.capacity,
-            current_load=0,
-            is_active=zone.is_active,
-        )
-        for zone in zones
-    ]
+    zones = db.query(DropOffZoneModel).order_by(DropOffZoneModel.name.asc()).all()
+    return [_zone_response(db, zone) for zone in zones]
 
 
 @router.get(
@@ -73,13 +72,7 @@ def get_drop_off_zone(zone_id: str, db: Session = Depends(get_db)) -> DropOffZon
     zone = db.get(DropOffZoneModel, zone_id)
     if zone is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Drop-off zone not found")
-    return DropOffZoneResponse(
-        id=str(zone.id),
-        name=zone.name,
-        capacity_total=zone.capacity,
-        current_load=0,
-        is_active=zone.is_active,
-    )
+    return _zone_response(db, zone)
 
 
 @router.patch(
@@ -97,7 +90,7 @@ def update_drop_off_zone(zone_id: str, payload: DropOffZoneUpdate, db: Session =
     updates = payload.model_dump(exclude_unset=True)
     for key, value in updates.items():
         if key == "capacity_total":
-            zone.capacity = value
+            zone.capacity_total = value
         elif key == "is_active":
             zone.is_active = value
         elif key == "name":
@@ -106,13 +99,7 @@ def update_drop_off_zone(zone_id: str, payload: DropOffZoneUpdate, db: Session =
     db.add(zone)
     db.commit()
     db.refresh(zone)
-    return DropOffZoneResponse(
-        id=str(zone.id),
-        name=zone.name,
-        capacity_total=zone.capacity,
-        current_load=0,
-        is_active=zone.is_active,
-    )
+    return _zone_response(db, zone)
 
 
 @router.delete(

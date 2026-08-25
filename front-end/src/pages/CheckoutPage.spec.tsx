@@ -9,7 +9,7 @@ import type { Order, PaymentTransaction, Product } from '../types';
 import { CheckoutPage } from './CheckoutPage';
 
 const product: Product = { id: 'product-1', canteen_id: 'canteen-1', name: 'Coxinha Suprema', description: null, price: '6.50', is_active: true, is_fast_stock_enabled: false, category: 'salgados', stock_quantity: 20 };
-const order: Order = { id: 'order-1', customer_id: 'customer-1', canteen_id: 'canteen-1', drop_off_zone_id: 'zone-1', status: 'draft', total_amount: '13.00', items: [{ id: 'item-1', product_id: 'product-1', quantity: 2, unit_price: '6.50' }], pickup_pin: null };
+const order: Order = { id: 'order-1', customer_id: 'customer-1', canteen_id: 'canteen-1', drop_off_zone_id: 'zone-1', location_details: 'Sala 42', status: 'draft', total_amount: '13.00', items: [{ id: 'item-1', product_id: 'product-1', quantity: 2, unit_price: '6.50' }], pickup_pin: null };
 
 function transaction(overrides: Partial<PaymentTransaction> = {}): PaymentTransaction {
   return { id: 'payment-1', order_id: 'order-1', amount: '13.00', payment_method: 'pix', status: 'pending', external_reference: 'pix-1', pix_copy_paste: 'pix-code', pix_qr_code: 'data:image/svg+xml;base64,abc', expires_at: '2099-01-01T00:00:00Z', failure_reason: null, created_at: '2026-08-24T10:00:00Z', confirmed_at: null, ...overrides };
@@ -36,7 +36,7 @@ describe('CheckoutPage', () => {
 
   it('creates a server-priced order and Pix intent without clearing the cart', async () => {
     mock.onPost('/orders/').reply((config) => {
-      expect(JSON.parse(String(config.data))).toEqual({ customer_id: 'customer-1', canteen_id: 'canteen-1', fulfillment_type: 'delivery', drop_off_zone_id: 'zone-1', items: [{ product_id: 'product-1', quantity: 2 }] });
+      expect(JSON.parse(String(config.data))).toEqual({ customer_id: 'customer-1', canteen_id: 'canteen-1', fulfillment_type: 'delivery', drop_off_zone_id: 'zone-1', location_details: null, items: [{ product_id: 'product-1', quantity: 2 }] });
       return [201, order];
     });
     mock.onPost('/payment-transactions/').reply((config) => {
@@ -46,6 +46,11 @@ describe('CheckoutPage', () => {
     });
     renderCheckout();
     await screen.findByRole('option', { name: 'Bloco C' });
+    fireEvent.change(screen.getByPlaceholderText('Ex: Sala 42, Laboratório de Informática, etc.'), { target: { value: 'Sala 12' } });
+    mock.onPost('/orders/').reply((config) => {
+      expect(JSON.parse(String(config.data))).toEqual({ customer_id: 'customer-1', canteen_id: 'canteen-1', fulfillment_type: 'delivery', drop_off_zone_id: 'zone-1', location_details: 'Sala 12', items: [{ product_id: 'product-1', quantity: 2 }] });
+      return [201, order];
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar e Pagar' }));
     await screen.findByText('Pagamento Pix');
     expect(useCartStore.getState().items).toHaveLength(1);

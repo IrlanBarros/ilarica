@@ -27,6 +27,7 @@ describe('buildOrderPayload', () => {
         customerId: 'customer-1',
         canteenId: 'canteen-1',
         dropOffZoneId: 'zone-1',
+        locationDetails: 'Sala 42',
         items,
       }),
     ).toEqual({
@@ -34,6 +35,7 @@ describe('buildOrderPayload', () => {
       canteen_id: 'canteen-1',
       fulfillment_type: 'delivery',
       drop_off_zone_id: 'zone-1',
+      location_details: 'Sala 42',
       items: [{ product_id: 'product-1', quantity: 2 }],
     });
   });
@@ -44,6 +46,7 @@ describe('buildOrderPayload', () => {
         customerId: 'customer-1',
         canteenId: 'canteen-1',
         dropOffZoneId: 'zone-1',
+        locationDetails: null,
         items: [],
       }),
     ).toThrow('At least one cart item');
@@ -53,6 +56,7 @@ describe('buildOrderPayload', () => {
         customerId: 'customer-1',
         canteenId: 'canteen-2',
         dropOffZoneId: 'zone-1',
+        locationDetails: 'Sala 42',
         items,
       }),
     ).toThrow('selected canteen');

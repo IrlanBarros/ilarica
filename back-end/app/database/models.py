@@ -221,7 +221,7 @@ class DropOffZoneModel(Base):
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    capacity_total: Mapped[int] = mapped_column("capacity_total", Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     orders: Mapped[list["OrderModel"]] = relationship(
@@ -261,6 +261,7 @@ class OrderModel(Base):
         nullable=True,
         index=True,
     )
+    location_details: Mapped[str | None] = mapped_column(String(180), nullable=True)
     fulfillment_type: Mapped[str] = mapped_column(String(20), nullable=False, default="delivery")
     status: Mapped[OrderStatus] = mapped_column(
         String(50),

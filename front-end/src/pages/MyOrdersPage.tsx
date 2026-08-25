@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { AppHeader } from '../components/AppHeader';
 import { Button, Card } from '../components/ui';
+import { formatDeliveryDestination } from '../lib/order-destination';
 import { useControlledPolling } from '../lib/useControlledPolling';
 import { listMyOrders } from '../services';
 import type { CustomerOrder } from '../types';
@@ -39,7 +40,7 @@ export function MyOrdersPage(): React.JSX.Element {
       <div className="mt-7 space-y-5">{orders.map((order) => <Card key={order.id} className="border-0 p-6 shadow-none sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase text-ilarica-orange">Pedido #{order.id.slice(0, 8)}</p><h2 className="mt-1 font-display text-xl font-extrabold text-[#7a1e1e]">{order.canteen.name}</h2><p className="text-sm text-ilarica-muted">{order.canteen.location}</p></div><span className="rounded-full bg-[#fff0e8] px-3 py-2 text-xs font-bold text-ilarica-orange">{statusLabels[order.status] ?? order.status}</span></div>
         <ul className="mt-5 space-y-1 text-sm text-ilarica-muted">{order.items.map((item) => <li key={item.id}>{item.quantity}x {item.name}</li>)}</ul>
-        <div className="mt-5 border-t border-ilarica-line pt-4 text-sm"><p><strong>Modalidade:</strong> {order.fulfillment_type === 'pickup' ? 'Retirada presencial' : 'Entrega'}</p><p className="mt-1"><strong>Destino:</strong> {order.fulfillment_type === 'pickup' ? order.canteen.location : order.destination?.name ?? 'Indisponível'}</p></div>
+        <div className="mt-5 border-t border-ilarica-line pt-4 text-sm"><p><strong>Modalidade:</strong> {order.fulfillment_type === 'pickup' ? 'Retirada presencial' : 'Entrega'}</p><p className="mt-1"><strong>Destino:</strong> {order.fulfillment_type === 'pickup' ? order.canteen.location : formatDeliveryDestination(order.destination, order.location_details)}</p></div>
         {order.fulfillment_type === 'pickup' && order.pickup_pin && <div className="mt-5 rounded-2xl bg-[#eff9f1] p-4 text-center text-[#237b39]"><span className="block text-xs font-bold uppercase">PIN de retirada</span><strong className="font-display text-3xl tracking-[0.3em]">{order.pickup_pin}</strong><span className="mt-1 block text-xs">Mostre este código no balcão.</span></div>}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ilarica-line pt-4 font-bold"><Link to={`/pedidos/${order.id}`} className="inline-flex min-h-11 items-center text-sm text-ilarica-orange hover:underline">Ver detalhes</Link><span className="text-[#7a1e1e]">{money.format(Number(order.total_amount))}</span></div>
       </Card>)}</div>

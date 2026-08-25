@@ -42,6 +42,7 @@ class CreatedOrder:
     customer_id: UUID
     canteen_id: UUID
     drop_off_zone_id: UUID | None
+    location_details: str | None
     fulfillment_type: str
     status: str
     total_amount: Decimal
@@ -63,6 +64,7 @@ class OrderCreationService:
         canteen_id: str,
         fulfillment_type: str,
         drop_off_zone_id: str | None,
+        location_details: str | None,
         items: list[tuple[str, int]],
     ) -> CreatedOrder:
         write_started = False
@@ -130,6 +132,7 @@ class OrderCreationService:
                 user_id=str(customer_uuid),
                 canteen_id=str(canteen_uuid),
                 drop_off_zone_id=str(zone_uuid) if zone_uuid else None,
+                location_details=location_details,
                 fulfillment_type=fulfillment_type,
                 items=domain_items,
                 status="draft",
@@ -149,6 +152,7 @@ class OrderCreationService:
                 drop_off_zone_id=(
                     UUID(str(persisted.drop_off_zone_id)) if persisted.drop_off_zone_id else None
                 ),
+                location_details=persisted.location_details,
                 fulfillment_type=persisted.fulfillment_type,
                 status=persisted.status.value if hasattr(persisted.status, "value") else str(persisted.status),
                 total_amount=Decimal(str(persisted.total_amount)),
@@ -191,7 +195,7 @@ class OrderCreationService:
             .filter(OrderModel.drop_off_zone_id == zone.id, OrderModel.status != "completed")
             .count()
         )
-        if current_load >= zone.capacity:
+        if current_load >= zone.capacity_total:
             raise OrderCreationError("conflict", "The selected drop-off zone is at capacity")
 
     @staticmethod

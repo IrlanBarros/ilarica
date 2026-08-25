@@ -50,6 +50,7 @@ export interface SellerOrder {
   customer: SellerOrderCustomer;
   fulfillment_type: 'pickup' | 'delivery';
   destination: SellerOrderDestination | null;
+  location_details: string | null;
 }
 
 export interface SellerPickupConfirmationResponse {
