@@ -15,6 +15,7 @@ import shoppingBagIcon from '../assets/figma/mural/shopping-bag.svg';
 import shoppingBasketIcon from '../assets/figma/mural/shopping-basket.svg';
 import userIcon from '../assets/figma/mural/user.svg';
 import walletIcon from '../assets/figma/mural/wallet.svg';
+import { formatNextOpening } from '../lib/canteen-hours';
 import { listCanteens } from '../services/canteen.service';
 import { listProducts } from '../services/product.service';
 import { useAuthStore, useCartStore } from '../store';
@@ -227,13 +228,18 @@ export function HomePage(): React.JSX.Element {
                       </p>
                       <span
                         className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                          canteen.is_open
+                          (canteen.is_accepting_orders ?? canteen.is_open)
                             ? 'bg-[#edf7ee] text-[#287a38]'
                             : 'bg-[#f1f0ed] text-[#77746d]'
                         }`}
                       >
-                        {canteen.is_open ? 'Aberto agora' : 'Fechado'}
+                        {(canteen.is_accepting_orders ?? canteen.is_open) ? 'Aberto agora' : 'Fechado'}
                       </span>
+                      {!(canteen.is_accepting_orders ?? canteen.is_open) && formatNextOpening(canteen.next_opening_at) && (
+                        <p className="mt-1 text-[10px] font-semibold text-ilarica-orange">
+                          {formatNextOpening(canteen.next_opening_at)}
+                        </p>
+                      )}
                     </div>
                   </Link>
                 ))}

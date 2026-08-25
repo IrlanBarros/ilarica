@@ -11,6 +11,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 FulfillmentType = Literal["pickup", "delivery"]
 
 
+def _normalize_location_details(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 class OrderItemBase(BaseModel):
     """Common order item attributes."""
 
@@ -56,8 +63,14 @@ class OrderBase(BaseModel):
     canteen_id: str = Field(..., min_length=1)
     fulfillment_type: FulfillmentType = "delivery"
     drop_off_zone_id: Optional[str] = Field(default=None, min_length=1)
+    location_details: Optional[str] = Field(default=None, max_length=180)
     status: str = Field(default="draft", min_length=2, max_length=50)
     total_amount: Decimal = Field(default=Decimal("0.00"), ge=0)
+
+    @field_validator("location_details")
+    @classmethod
+    def validate_location_details(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_location_details(value)
 
 
 class OrderCreate(BaseModel):
@@ -68,7 +81,13 @@ class OrderCreate(BaseModel):
     canteen_id: str = Field(..., min_length=1)
     fulfillment_type: FulfillmentType = "delivery"
     drop_off_zone_id: Optional[str] = Field(default=None, min_length=1)
+    location_details: Optional[str] = Field(default=None, max_length=180)
     items: List[OrderItemCreate] = Field(..., min_length=1)
+
+    @field_validator("location_details")
+    @classmethod
+    def validate_location_details(cls, value: Optional[str]) -> Optional[str]:
+        return _normalize_location_details(value)
 
     @model_validator(mode="after")
     def validate_fulfillment(self) -> "OrderCreate":
@@ -162,6 +181,7 @@ class SellerOrderResponse(BaseModel):
     customer: SellerOrderCustomerResponse
     fulfillment_type: FulfillmentType
     destination: Optional[SellerOrderDestinationResponse] = None
+    location_details: Optional[str] = None
 
 
 class CustomerOrderCanteenResponse(BaseModel):
@@ -178,6 +198,7 @@ class CustomerOrderResponse(BaseModel):
     items: List[SellerOrderItemResponse]
     total_amount: Decimal = Field(..., ge=0)
     destination: Optional[SellerOrderDestinationResponse] = None
+    location_details: Optional[str] = None
     canteen: CustomerOrderCanteenResponse
     pickup_pin: Optional[str] = None
 

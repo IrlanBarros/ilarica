@@ -15,7 +15,7 @@ const defaultHours: CanteenBusinessHoursEntry[] = [
 
 function SellerNav(): React.JSX.Element {
   const { pathname } = useLocation();
-  const links = [['/vendedor/pedidos', 'Pedidos Recebidos'], ['/vendedor/cardapio', 'Meu Cardápio'], ['/vendedor/horarios', 'Horários'], ['/vendedor/configuracoes', 'Configurações']] as const;
+  const links = [['/vendedor/pedidos', 'Pedidos Recebidos'], ['/vendedor/cardapio', 'Meu Cardápio'], ['/vendedor/horarios', 'Horários'], ['/vendedor/configuracoes', 'Configurações'], ['/vendedor/onboarding', 'Perfil comercial']] as const;
   return <aside className="h-fit rounded-2xl bg-white p-5 lg:sticky lg:top-6 lg:w-[280px]"><h2 className="mb-2 font-display text-lg font-extrabold text-[#7a1e1e]">Gerenciamento</h2><nav className="flex gap-2 overflow-x-auto lg:flex-col">{links.map(([to, label]) => <Link key={to} to={to} aria-current={pathname === to ? 'page' : undefined} className={`shrink-0 rounded-lg px-3 py-3 text-sm lg:w-full ${pathname === to ? 'bg-[#fff0e8] font-bold text-ilarica-orange' : 'text-ilarica-muted hover:bg-[#fffaf2]'}`}>{label}</Link>)}</nav></aside>;
 }
 

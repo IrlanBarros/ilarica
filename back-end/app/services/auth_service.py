@@ -42,4 +42,6 @@ class AuthService:
         user = self.authenticate(email, password)
         if user is None:
             raise ValueError("Incorrect email or password")
+        if user.role in {"customer", "courier"} and not user.is_email_validated:
+            raise PermissionError("Institutional email verification is required")
         return create_access_token(subject=user.email)

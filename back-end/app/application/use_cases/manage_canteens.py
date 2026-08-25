@@ -13,12 +13,18 @@ from app.domain.catalog.canteen import Canteen
 class CreateCanteenUseCase:
     canteen_repository: ICanteenRepository
 
-    def execute(self, *, user_id: str, name: str, location: str, is_open: bool = False) -> Canteen:
+    def execute(
+        self, *, user_id: str, name: str, location: str,
+        description: str | None = None, logo_url: str | None = None,
+        is_open: bool = False,
+    ) -> Canteen:
         canteen = Canteen(
             id=str(uuid4()),
             user_id=user_id,
             name=name,
             location=location,
+            description=description,
+            logo_url=logo_url,
             is_open=is_open,
         )
         return self.canteen_repository.add(canteen)
@@ -50,12 +56,21 @@ class UpdateCanteenUseCase:
         *,
         name: str | None = None,
         location: str | None = None,
+        description: str | None = None,
+        logo_url: str | None = None,
         is_open: bool | None = None,
+        opening_hours: list[dict[str, object]] | None = None,
     ) -> Canteen | None:
         canteen = self.canteen_repository.get_by_id(canteen_id)
         if canteen is None:
             return None
         canteen.update_profile(name=name, location=location)
+        if description is not None:
+            canteen.description = description.strip() or None
+        if logo_url is not None:
+            canteen.logo_url = logo_url.strip() or None
         if is_open is not None:
             canteen.is_open = is_open
+        if opening_hours is not None:
+            canteen.opening_hours = opening_hours
         return self.canteen_repository.save(canteen)

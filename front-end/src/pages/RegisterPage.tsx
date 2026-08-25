@@ -45,7 +45,7 @@ export function RegisterPage(): React.JSX.Element {
     if (!validate()) return;
     try {
       await register({ name: form.name.trim(), email: form.email.trim().toLowerCase(), whatsapp: toBrazilianWhatsappPayload(form.whatsapp), password: form.password, role: form.role });
-      navigate('/login', { replace: true, state: { registered: true } });
+      navigate(`/verificar-email?email=${encodeURIComponent(form.email.trim().toLowerCase())}`, { replace: true });
     } catch (caughtError) {
       const apiError = normalizeApiError(caughtError);
       if (apiError.status === 403) setError('Este tipo de conta não pode ser criado pelo cadastro público.');

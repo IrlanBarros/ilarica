@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
@@ -22,6 +23,8 @@ class CanteenBase(BaseModel):
 
     name: str = Field(..., min_length=2, max_length=150)
     location: str = Field(..., min_length=2, max_length=200)
+    description: str | None = Field(default=None, max_length=1000)
+    logo_url: str | None = Field(default=None, max_length=500, pattern=r"^https?://")
     is_open: bool = False
     opening_hours: list[BusinessHoursEntry] = Field(default_factory=list)
     model_config = ConfigDict(extra="forbid")
@@ -45,6 +48,8 @@ class CanteenUpdate(BaseModel):
 
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     location: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=1000)
+    logo_url: Optional[str] = Field(default=None, max_length=500, pattern=r"^https?://")
     is_open: Optional[bool] = None
     opening_hours: Optional[list[BusinessHoursEntry]] = None
     model_config = ConfigDict(extra="forbid")
@@ -65,7 +70,40 @@ class CanteenResponse(CanteenBase):
     id: UUID
     user_id: UUID
     products: list[UUID] = Field(default_factory=list)
+    is_accepting_orders: bool = False
+    next_opening_at: datetime | None = None
+    commercial_terms_accepted_at: datetime | None = None
+    moderation_status: Literal["pending", "approved", "rejected"] = "pending"
+    moderation_reviewed_at: datetime | None = None
+    rejection_reason: str | None = None
     model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+class CanteenOnboarding(BaseModel):
+    """Commercial profile submitted by the authenticated canteen staff."""
+
+    model_config = ConfigDict(extra="forbid")
+    description: str = Field(..., min_length=20, max_length=1000)
+    logo_url: str = Field(..., max_length=500, pattern=r"^https?://")
+    accepted_commercial_terms: Literal[True]
+
+    @field_validator("description", "logo_url")
+    @classmethod
+    def strip_onboarding_fields(cls, value: str) -> str:
+        return value.strip()
+
+
+class CanteenModerationUpdate(BaseModel):
+    """Explicit decision available only to administrators."""
+
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["approved", "rejected"]
+    rejection_reason: str | None = Field(default=None, min_length=5, max_length=500)
+
+    @field_validator("rejection_reason")
+    @classmethod
+    def strip_rejection_reason(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
 
 
 SchemaBase = CanteenBase

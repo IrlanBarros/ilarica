@@ -1,5 +1,5 @@
 import { apiClient } from '../api';
-import type { ApiMessageResponse, Canteen, CanteenCreate, CanteenUpdate } from '../types';
+import type { ApiMessageResponse, Canteen, CanteenCreate, CanteenModerationUpdate, CanteenOnboarding, CanteenUpdate } from '../types';
 
 export async function listCanteens(): Promise<Canteen[]> {
   const response = await apiClient.get<Canteen[]>('/canteens/');
@@ -32,4 +32,23 @@ export async function getMyCanteen(): Promise<Canteen> {
 
 export async function updateMyCanteen(payload: CanteenUpdate): Promise<Canteen> {
   return (await apiClient.patch<Canteen>('/canteens/me', payload)).data;
+}
+
+export async function submitMyCanteenOnboarding(payload: CanteenOnboarding): Promise<Canteen> {
+  return (await apiClient.post<Canteen>('/canteens/me/onboarding', payload)).data;
+}
+
+export async function listCanteensForModeration(
+  status?: 'pending' | 'approved' | 'rejected',
+): Promise<Canteen[]> {
+  return (await apiClient.get<Canteen[]>('/canteens/moderation', {
+    params: status ? { moderation_status: status } : undefined,
+  })).data;
+}
+
+export async function moderateCanteen(
+  canteenId: string,
+  payload: CanteenModerationUpdate,
+): Promise<Canteen> {
+  return (await apiClient.patch<Canteen>(`/canteens/${canteenId}/moderation`, payload)).data;
 }

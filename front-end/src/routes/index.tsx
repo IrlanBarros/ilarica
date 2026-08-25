@@ -14,6 +14,7 @@ const HomePage = lazy(() => import('../pages/HomePage').then((module) => ({ defa
 const LoginPage = lazy(() => import('../pages/LoginPage').then((module) => ({ default: module.LoginPage })));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import('../pages/VerifyEmailPage').then((module) => ({ default: module.VerifyEmailPage })));
 const LegalPage = lazy(() => import('../pages/LegalPage').then((module) => ({ default: module.LegalPage })));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
 const OrderDetailPage = lazy(() => import('../pages/OrderDetailPage').then((module) => ({ default: module.OrderDetailPage })));
@@ -29,6 +30,8 @@ const RoleLandingPage = lazy(() => import('../pages/RoleLandingPage').then((modu
 const SellerOrdersPage = lazy(() => import('../pages/SellerOrdersPage').then((module) => ({ default: module.SellerOrdersPage })));
 const SellerSettingsPage = lazy(() => import('../pages/SellerSettingsPage').then((module) => ({ default: module.SellerSettingsPage })));
 const WalletPage = lazy(() => import('../pages/WalletPage').then((module) => ({ default: module.WalletPage })));
+const SellerOnboardingPage = lazy(() => import('../pages/SellerOnboardingPage').then((module) => ({ default: module.SellerOnboardingPage })));
+const AdminCanteenModerationPage = lazy(() => import('../pages/AdminCanteenModerationPage').then((module) => ({ default: module.AdminCanteenModerationPage })));
 
 export const router = createBrowserRouter([
   { path: '/termos', element: <LegalPage kind="terms" /> },
@@ -51,6 +54,10 @@ export const router = createBrowserRouter([
       {
         path: '/redefinir-senha',
         element: <ResetPasswordPage />,
+      },
+      {
+        path: '/verificar-email',
+        element: <VerifyEmailPage />,
       },
     ],
   },
@@ -133,8 +140,12 @@ export const router = createBrowserRouter([
             element: <RoleRoute allowedRoles={['canteen_staff']}><SellerSettingsPage mode="settings" /></RoleRoute>,
           },
           {
+            path: '/vendedor/onboarding',
+            element: <RoleRoute allowedRoles={['canteen_staff']}><SellerOnboardingPage /></RoleRoute>,
+          },
+          {
             path: '/admin',
-            element: <RoleRoute allowedRoles={['admin']}><RoleLandingPage title="Administração" description="Fundação da área administrativa do iLarica." /></RoleRoute>,
+            element: <RoleRoute allowedRoles={['admin']}><AdminCanteenModerationPage /></RoleRoute>,
           },
         ],
       },

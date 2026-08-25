@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+ProductCategory = Literal["salgados", "bebidas", "refeicoes", "doces", "outros"]
 
 
 class ProductBase(BaseModel):
@@ -16,7 +18,9 @@ class ProductBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=150)
     description: Optional[str] = None
     image_url: Optional[str] = Field(default=None, max_length=500)
+    category: ProductCategory = "outros"
     price: Decimal = Field(..., gt=0)
+    stock_quantity: int = Field(default=0, ge=0, le=100_000)
     is_active: bool = True
 
     @field_validator("price")
@@ -41,7 +45,9 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     description: Optional[str] = None
     image_url: Optional[str] = Field(default=None, max_length=500)
+    category: Optional[ProductCategory] = None
     price: Optional[Decimal] = Field(default=None, gt=0)
+    stock_quantity: Optional[int] = Field(default=None, ge=0, le=100_000)
     is_active: Optional[bool] = None
 
     @field_validator("price")

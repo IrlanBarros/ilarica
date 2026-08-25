@@ -52,6 +52,7 @@ class UserModel(Base):
 
     canteens: Mapped[list["CanteenModel"]] = relationship(
         back_populates="user",
+        foreign_keys="CanteenModel.user_id",
         cascade="all, delete-orphan",
     )
     orders: Mapped[list["OrderModel"]] = relationship(
@@ -92,6 +93,23 @@ class PasswordResetTokenModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
+class EmailVerificationTokenModel(Base):
+    """Single-use email verification token stored only as a digest."""
+
+    __tablename__ = "email_verification_tokens"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class InvitationKeyModel(Base):
     """SQLAlchemy model for invitation keys used by the closed ecosystem."""
 
@@ -129,10 +147,21 @@ class CanteenModel(Base):
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     location: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     opening_hours: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    commercial_terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    moderation_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    moderation_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    moderated_by_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    user: Mapped[UserModel] = relationship(back_populates="canteens")
+    user: Mapped[UserModel] = relationship(back_populates="canteens", foreign_keys=[user_id])
     products: Mapped[list["ProductModel"]] = relationship(
         back_populates="canteen",
         cascade="all, delete-orphan",
@@ -165,7 +194,9 @@ class ProductModel(Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, default="outros")
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    stock_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_fast_stock_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
@@ -190,7 +221,7 @@ class DropOffZoneModel(Base):
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    capacity_total: Mapped[int] = mapped_column("capacity_total", Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     orders: Mapped[list["OrderModel"]] = relationship(
@@ -230,6 +261,7 @@ class OrderModel(Base):
         nullable=True,
         index=True,
     )
+    location_details: Mapped[str | None] = mapped_column(String(180), nullable=True)
     fulfillment_type: Mapped[str] = mapped_column(String(20), nullable=False, default="delivery")
     status: Mapped[OrderStatus] = mapped_column(
         String(50),

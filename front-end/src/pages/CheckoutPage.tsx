@@ -45,7 +45,7 @@ export function CheckoutPage(): React.JSX.Element {
   const [fulfillmentMethod, setFulfillmentMethod] = useState<FulfillmentMethod>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(pendingPayment?.method || 'pix');
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [reference, setReference] = useState('');
+  const [locationDetails, setLocationDetails] = useState('');
   const [isLoadingZones, setIsLoadingZones] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +105,7 @@ export function CheckoutPage(): React.JSX.Element {
           canteenId,
           fulfillmentType: fulfillmentMethod,
           dropOffZoneId: fulfillmentMethod === 'delivery' ? selectedZoneId : null,
+          locationDetails: fulfillmentMethod === 'delivery' ? locationDetails : null,
           items,
         });
         const order = await createOrder(payload);
@@ -188,19 +189,18 @@ export function CheckoutPage(): React.JSX.Element {
           </fieldset>
 
           {fulfillmentMethod === 'delivery' ? <div className="mt-7">
-            <label htmlFor="drop-off-zone" className="font-display text-lg font-bold text-[#7a1e1e]">Ponto de Entrega no Campus</label>
+            <label htmlFor="drop-off-zone" className="font-display text-lg font-bold text-[#7a1e1e]">Zona Macro de Entrega</label>
             <select id="drop-off-zone" value={selectedZoneId} onChange={(event) => setSelectedZoneId(event.target.value)} disabled={isLoadingZones || activeZones.length === 0} className="mt-3 h-12 w-full rounded-xl border border-transparent bg-[#fff1d6] px-4 outline-none focus:border-ilarica-orange disabled:cursor-not-allowed disabled:opacity-60">
               <option value="">{isLoadingZones ? 'Carregando pontos...' : 'Selecione um ponto'}</option>
               {activeZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
             </select>
+            <p className="mt-2 text-xs text-ilarica-muted">Escolha a zona macro do campus e, abaixo, informe a sala ou laboratório se quiser detalhar a entrega.</p>
             {!isLoadingZones && activeZones.length === 0 && <p className="mt-2 text-xs font-semibold text-[#9f321b]">Nenhum ponto está disponível no momento.</p>}
+            <div className="mt-5 rounded-2xl border border-[#f0dfc2] bg-[#fffaf2] p-4">
+              <label htmlFor="location-details" className="text-sm font-bold text-ilarica-muted">Detalhe do local <span className="font-normal">(opcional)</span></label>
+              <input id="location-details" type="text" value={locationDetails} onChange={(event) => setLocationDetails(event.target.value)} maxLength={180} placeholder="Ex: Sala 42, Laboratório de Informática, etc." className="mt-2 h-12 w-full rounded-xl border border-transparent bg-white px-4 text-sm outline-none focus:border-ilarica-orange" />
+            </div>
           </div> : <div className="mt-7 rounded-2xl bg-[#eff9f1] p-4 text-sm text-[#237b39]"><strong>Retirada na cantina</strong><span className="mt-1 block">Você receberá um PIN quando o pedido estiver pronto.</span></div>}
-
-          <div className="mt-6">
-            <label htmlFor="reference" className="text-sm font-bold text-ilarica-muted">Sala / Laboratório / Referência <span className="font-normal">(opcional, somente para sua revisão)</span></label>
-            <textarea id="reference" value={reference} onChange={(event) => setReference(event.target.value)} maxLength={180} placeholder="Ex: Laboratório de Redes, Sala 204" className="mt-2 min-h-20 w-full resize-none rounded-xl border border-transparent bg-[#fff1d6] px-4 py-3 text-sm outline-none focus:border-ilarica-orange" />
-            <p className="mt-2 text-xs text-ilarica-muted">A observação não será enviada enquanto o backend não possuir esse campo no contrato.</p>
-          </div>
 
           <fieldset className="mt-7">
             <legend className="font-display text-lg font-bold text-[#7a1e1e]">Método de Pagamento</legend>

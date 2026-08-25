@@ -74,3 +74,4 @@ playwright-report/
 tmp/
 
 /output
+/outputs

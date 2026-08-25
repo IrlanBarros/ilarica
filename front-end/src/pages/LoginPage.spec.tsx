@@ -49,6 +49,16 @@ describe('LoginPage', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('E-mail ou senha incorretos.'));
   });
 
+  it('explains that institutional email verification is required for 403', async () => {
+    login.mockRejectedValue(new ApiClientError('Forbidden', 403, 'Forbidden'));
+    renderLogin();
+    fireEvent.change(screen.getByLabelText(/e-mail institucional/i), { target: { value: 'cliente@ufca.edu.br' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'Password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /entrar/i }));
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Confirme seu e-mail'));
+  });
+
   it('shows registration success feedback', () => {
     renderLogin({ pathname: '/login', state: { registered: true } });
     expect(screen.getByRole('status').textContent).toContain('Cadastro concluído com sucesso');

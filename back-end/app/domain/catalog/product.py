@@ -21,6 +21,7 @@ class Product:
     canteen_id: str | None = None
     description: str | None = None
     image_url: str | None = None
+    category: str = "outros"
 
     def enableFastStock(self) -> bool:
         """Enable a fast-stock mode for the product."""

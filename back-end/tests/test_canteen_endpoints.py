@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -26,7 +27,12 @@ def test_canteen_create_get_patch_contract_and_commit(
 
     assert create_response.status_code == HTTPStatus.CREATED
     created = create_response.json()
-    assert set(created) == {"id", "user_id", "name", "location", "is_open", "products", "opening_hours"}
+    assert set(created) == {
+        "id", "user_id", "name", "location", "is_open", "products", "opening_hours",
+        "is_accepting_orders", "next_opening_at",
+        "description", "logo_url", "commercial_terms_accepted_at", "moderation_status",
+        "moderation_reviewed_at", "rejection_reason",
+    }
     assert created["name"] == "Cantina Central"
     assert created["location"] == "Campus Juazeiro"
 
@@ -45,9 +51,16 @@ def test_canteen_create_get_patch_contract_and_commit(
     assert patch_response.json()["location"] == "Bloco B"
     assert patch_response.json()["is_open"] is False
 
+    persisted.description = "Uma cantina completa para a comunidade acadêmica."
+    persisted.logo_url = "https://images.example/cantina.png"
+    persisted.commercial_terms_accepted_at = datetime.now(timezone.utc)
+    persisted.moderation_status = "approved"
+    db_session.commit()
+
     get_response = client.get(f"/canteens/{created['id']}")
     assert get_response.status_code == HTTPStatus.OK
-    assert get_response.json() == patch_response.json()
+    assert get_response.json()["name"] == patch_response.json()["name"]
+    assert get_response.json()["moderation_status"] == "approved"
 
 
 def test_canteen_list_returns_persisted_identity(client: TestClient, db_session: Session) -> None:
@@ -61,6 +74,12 @@ def test_canteen_list_returns_persisted_identity(client: TestClient, db_session:
         },
     )
     assert response.status_code == HTTPStatus.CREATED
+
+    created = response.json()
+    persisted = db_session.get(CanteenModel, UUID(created["id"]))
+    assert persisted is not None
+    persisted.moderation_status = "approved"
+    db_session.commit()
 
     listed = client.get("/canteens/")
     assert listed.status_code == HTTPStatus.OK

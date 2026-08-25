@@ -7,6 +7,8 @@ export interface SellerMenuItem {
   price: string;
   imageUrl: string;
   isAvailable: boolean;
+  category: import('./product.types').ProductCategory;
+  stockQuantity: number;
 }
 
 export interface BusinessHoursEntry {
@@ -48,6 +50,7 @@ export interface SellerOrder {
   customer: SellerOrderCustomer;
   fulfillment_type: 'pickup' | 'delivery';
   destination: SellerOrderDestination | null;
+  location_details: string | null;
 }
 
 export interface SellerPickupConfirmationResponse {

@@ -6,6 +6,7 @@ interface BuildOrderPayloadInput {
   canteenId: string | null;
   fulfillmentType?: FulfillmentType;
   dropOffZoneId: string | null;
+  locationDetails?: string | null;
   items: CartItem[];
 }
 
@@ -13,6 +14,7 @@ export function buildOrderPayload({
   customerId,
   canteenId,
   dropOffZoneId,
+  locationDetails,
   fulfillmentType,
   items,
 }: BuildOrderPayloadInput): OrderCreate {
@@ -37,6 +39,7 @@ export function buildOrderPayload({
     canteen_id: canteenId,
     fulfillment_type: resolvedFulfillmentType,
     drop_off_zone_id: resolvedFulfillmentType === 'pickup' ? null : dropOffZoneId,
+    location_details: resolvedFulfillmentType === 'pickup' ? null : locationDetails?.trim() || null,
     items: orderItems,
   };
 }

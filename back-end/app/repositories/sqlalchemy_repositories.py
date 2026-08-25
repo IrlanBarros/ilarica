@@ -63,11 +63,12 @@ def _to_domain_product(model: ProductModel) -> Product:
         name=model.name,
         price=Decimal(str(model.price)),
         is_active=model.is_active,
-        stock_quantity=0,
+        stock_quantity=model.stock_quantity,
         is_fast_stock_enabled=model.is_fast_stock_enabled,
         canteen_id=str(model.canteen_id),
         description=model.description,
         image_url=model.image_url,
+        category=model.category,
     )
 
 
@@ -77,9 +78,16 @@ def _to_domain_canteen(model: CanteenModel) -> Canteen:
         user_id=str(model.user_id),
         name=model.name,
         location=model.location,
+        description=model.description,
+        logo_url=model.logo_url,
         is_open=model.is_open,
         products=[str(product.id) for product in model.products],
         opening_hours=model.opening_hours or [],
+        commercial_terms_accepted_at=model.commercial_terms_accepted_at,
+        moderation_status=model.moderation_status,
+        moderation_reviewed_at=model.moderation_reviewed_at,
+        moderated_by_id=str(model.moderated_by_id) if model.moderated_by_id else None,
+        rejection_reason=model.rejection_reason,
     )
 
 
@@ -101,6 +109,7 @@ def _to_domain_order(model: OrderModel) -> Order:
         pickup_pin=model.pickup_pin,
         canteen_id=str(model.canteen_id),
         drop_off_zone_id=str(model.drop_off_zone_id) if model.drop_off_zone_id else None,
+        location_details=model.location_details,
         fulfillment_type=model.fulfillment_type,
         delivery_ride_id=str(model.delivery_ride.id) if getattr(model, "delivery_ride", None) else None,
     )
@@ -222,6 +231,8 @@ class SQLAlchemyProductRepository(IProductRepository):
                 is_fast_stock_enabled=product.is_fast_stock_enabled,
                 description=product.description,
                 image_url=product.image_url,
+                category=product.category,
+                stock_quantity=product.stock_quantity,
             )
             self.session.add(model)
         else:
@@ -231,6 +242,8 @@ class SQLAlchemyProductRepository(IProductRepository):
             model.is_fast_stock_enabled = product.is_fast_stock_enabled
             model.description = product.description
             model.image_url = product.image_url
+            model.category = product.category
+            model.stock_quantity = product.stock_quantity
             if canteen_id is not None:
                 model.canteen_id = canteen_id
         self.session.flush()
@@ -253,8 +266,15 @@ class SQLAlchemyCanteenRepository(ICanteenRepository):
             user_id=UUID(canteen.user_id),
             name=canteen.name,
             location=canteen.location,
+            description=canteen.description,
+            logo_url=canteen.logo_url,
             is_open=canteen.is_open,
             opening_hours=canteen.opening_hours,
+            commercial_terms_accepted_at=canteen.commercial_terms_accepted_at,
+            moderation_status=canteen.moderation_status,
+            moderation_reviewed_at=canteen.moderation_reviewed_at,
+            moderated_by_id=UUID(canteen.moderated_by_id) if canteen.moderated_by_id else None,
+            rejection_reason=canteen.rejection_reason,
         )
         self.session.add(model)
         self.session.flush()
@@ -266,8 +286,15 @@ class SQLAlchemyCanteenRepository(ICanteenRepository):
             raise ValueError("The canteen does not exist.")
         model.name = canteen.name
         model.location = canteen.location
+        model.description = canteen.description
+        model.logo_url = canteen.logo_url
         model.is_open = canteen.is_open
         model.opening_hours = canteen.opening_hours
+        model.commercial_terms_accepted_at = canteen.commercial_terms_accepted_at
+        model.moderation_status = canteen.moderation_status
+        model.moderation_reviewed_at = canteen.moderation_reviewed_at
+        model.moderated_by_id = UUID(canteen.moderated_by_id) if canteen.moderated_by_id else None
+        model.rejection_reason = canteen.rejection_reason
         self.session.flush()
         return _to_domain_canteen(model)
 
@@ -314,6 +341,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
                 customer_id=UUID(order.user_id),
                 canteen_id=UUID(order.canteen_id),
                 drop_off_zone_id=UUID(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+                location_details=order.location_details,
                 fulfillment_type=order.fulfillment_type,
                 status=OrderStatus(order.status),
                 total_amount=float(order.total_with_delivery()),
@@ -324,6 +352,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             model.status = OrderStatus(order.status) if isinstance(order.status, str) else order.status
             model.total_amount = float(order.total_with_delivery())
             model.pickup_pin = order.pickup_pin
+            model.location_details = order.location_details
         self.session.flush()
         return order
 
@@ -333,6 +362,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             customer_id=UUID(order.user_id),
             canteen_id=UUID(order.canteen_id),
             drop_off_zone_id=UUID(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+            location_details=order.location_details,
             fulfillment_type=order.fulfillment_type,
             status=OrderStatus(order.status),
             total_amount=float(order.total_with_delivery()),

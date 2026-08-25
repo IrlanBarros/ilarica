@@ -24,6 +24,7 @@ def test_login_success_returns_token(client: TestClient, db_session: Session):
         whatsapp="5588999999999",
         password_hash=get_password_hash("Secret123"),
         role_type="customer",
+        is_email_validated=True,
     )
     db_session.add(user)
     db_session.commit()
@@ -70,6 +71,26 @@ def test_login_with_wrong_password_returns_401(client: TestClient, db_session: S
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.headers.get("WWW-Authenticate") == "Bearer"
+
+
+def test_login_requires_institutional_email_verification(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = UserModel(
+        id=uuid4(), name="Pending User", email="pending@ufca.edu.br",
+        whatsapp="5588999999997", password_hash=get_password_hash("Secret123"),
+        role_type="customer", is_email_validated=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    response = client.post(
+        "/auth/login",
+        data={"username": user.email, "password": "Secret123"},
+    )
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_protected_route_without_override_returns_401(client: TestClient):

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import random
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -128,7 +129,11 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
                 user_id=owner.id,
                 name=canteen_name,
                 location=location,
+                description=f"Produtos frescos e atendimento no {location}.",
+                logo_url="https://placehold.co/512x512/png?text=iLarica",
                 is_open=True,
+                commercial_terms_accepted_at=datetime.now(timezone.utc),
+                moderation_status="approved",
                 opening_hours=[
                     {"day": "weekdays", "opens_at": "08:00", "closes_at": "18:00", "is_open": True},
                     {"day": "saturday", "opens_at": "09:00", "closes_at": "13:00", "is_open": True},
@@ -184,8 +189,15 @@ def create_products_for_canteens(session, canteens: list[CanteenModel]) -> list[
                     name=product_name,
                     description=description,
                     image_url=f"https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80&item={len(created_products)}",
+                    category=(
+                        "bebidas" if any(word in product_name.lower() for word in ("suco", "caldo"))
+                        else "doces" if any(word in product_name.lower() for word in ("brownie", "bolo", "brigadeiro"))
+                        else "refeicoes" if any(word in product_name.lower() for word in ("marmita", "salada"))
+                        else "salgados"
+                    ),
                     price=float(base_price + random.uniform(-0.5, 2.5)),
-                    is_fast_stock_enabled=random.choice([True, False]),
+                    stock_quantity=random.randint(12, 40),
+                    is_fast_stock_enabled=True,
                     is_active=True,
                 )
                 session.add(product)
@@ -206,12 +218,32 @@ def create_drop_off_zones(session) -> list[DropOffZoneModel]:
     zones: list[DropOffZoneModel] = []
 
     try:
-        for zone_name in ["Bloco A", "Biblioteca Central", "Praça do Campus", "Residência Norte"]:
+        macro_zones = [
+            "Bloco A",
+            "Bloco B",
+            "Bloco C",
+            "Bloco D",
+            "Bloco E",
+            "Bloco F",
+            "Bloco G",
+            "Bloco H",
+            "Bloco I",
+            "Bloco J",
+            "Bloco K",
+            "Bloco L",
+            "Bloco M",
+            "Bloco N",
+            "Bloco R",
+            "Mirante",
+            "Quadra 1",
+            "Quadra 2",
+        ]
+        for zone_name in macro_zones:
             zone = DropOffZoneModel(
                 id=uuid4(),
                 name=zone_name,
-                description=f"Zona de entrega para {zone_name.lower()}.",
-                capacity=random.randint(12, 30),
+                description="Zona macro de entrega no campus.",
+                capacity_total=200,
                 is_active=True,
             )
             session.add(zone)

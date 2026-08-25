@@ -33,7 +33,9 @@ export function LoginPage(): React.JSX.Element {
       navigate(getRoleHome(authenticatedUser.role), { replace: true });
     } catch (caughtError) {
       const apiError = normalizeApiError(caughtError);
-      setError(apiError.status === 401 ? 'E-mail ou senha incorretos.' : 'Não foi possível entrar. Verifique sua conexão e tente novamente.');
+      if (apiError.status === 401) setError('E-mail ou senha incorretos.');
+      else if (apiError.status === 403) setError('Confirme seu e-mail institucional antes de entrar.');
+      else setError('Não foi possível entrar. Verifique sua conexão e tente novamente.');
     }
   }
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,9 +14,11 @@ from app.database.models import UserModel
 from app.repositories.sqlalchemy_repositories import SQLAlchemyInvitationKeyRepository, SQLAlchemyUserRepository
 from app.schemas.user_schemas import UserCreate, UserResponse, UserUpdate
 from app.services.user_service import UserService
+from app.services.email_verification_service import EmailVerificationService
 from app.domain.access_identity.user import User
 
 router = APIRouter(prefix="/users", tags=["Users"])
+logger = logging.getLogger(__name__)
 
 
 def _to_user_response(user: User | UserModel) -> UserResponse:
@@ -63,6 +66,12 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> UserRespo
             role=payload.role,
         )
         db.commit()
+        try:
+            EmailVerificationService(db).request(
+                str(user.email), skip_if_unconfigured=True
+            )
+        except Exception:
+            logger.exception("Unable to send registration verification email", extra={"user_id": str(user.id)})
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

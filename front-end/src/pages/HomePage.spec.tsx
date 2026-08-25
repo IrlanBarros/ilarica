@@ -41,7 +41,9 @@ const products: Product[] = [
     description: null,
     price: '7.00',
     is_active: true,
-    is_fast_stock_enabled: false,
+  is_fast_stock_enabled: false,
+  category: 'outros',
+  stock_quantity: 20,
   },
 ];
 

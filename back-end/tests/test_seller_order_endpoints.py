@@ -27,9 +27,9 @@ def _seller_catalog(db: Session):
     canteen_b = CanteenModel(id=uuid4(), user_id=staff_b.id, name="Cantina B", location="Bloco B", is_open=True)
     product_a = ProductModel(id=uuid4(), canteen_id=canteen_a.id, name="Coxinha", description=None, price="8.00", is_fast_stock_enabled=False, is_active=True)
     product_b = ProductModel(id=uuid4(), canteen_id=canteen_b.id, name="Pastel", description=None, price="9.00", is_fast_stock_enabled=False, is_active=True)
-    zone = DropOffZoneModel(id=uuid4(), name="Biblioteca", description="Entrada principal", capacity=20, is_active=True)
-    order_a = OrderModel(id=uuid4(), customer_id=customer.id, canteen_id=canteen_a.id, drop_off_zone_id=zone.id, status="paid", total_amount="16.00")
-    order_b = OrderModel(id=uuid4(), customer_id=customer.id, canteen_id=canteen_b.id, drop_off_zone_id=zone.id, status="paid", total_amount="9.00")
+    zone = DropOffZoneModel(id=uuid4(), name="Biblioteca", description="Entrada principal", capacity_total=20, is_active=True)
+    order_a = OrderModel(id=uuid4(), customer_id=customer.id, canteen_id=canteen_a.id, drop_off_zone_id=zone.id, location_details="Sala 12", status="paid", total_amount="16.00")
+    order_b = OrderModel(id=uuid4(), customer_id=customer.id, canteen_id=canteen_b.id, drop_off_zone_id=zone.id, location_details="Laboratório 3", status="paid", total_amount="9.00")
     item_a = OrderItemModel(id=uuid4(), order_id=order_a.id, product_id=product_a.id, unit_price="8.00", quantity=2)
     item_b = OrderItemModel(id=uuid4(), order_id=order_b.id, product_id=product_b.id, unit_price="9.00", quantity=1)
     db.add_all([staff_a, staff_b, customer, canteen_a, canteen_b, product_a, product_b, zone, order_a, order_b, item_a, item_b])
@@ -49,6 +49,7 @@ def test_seller_orders_are_isolated_by_authenticated_canteen(client: TestClient,
     assert str(order_b.id) not in {entry["id"] for entry in payload}
     assert payload[0]["customer"] == {"id": str(order_a.customer_id), "name": "Customer QA"}
     assert payload[0]["destination"]["name"] == "Biblioteca"
+    assert payload[0]["location_details"] == "Sala 12"
     assert payload[0]["items"][0]["name"] == "Coxinha"
     assert payload[0]["total_amount"] == "16.00"
 
