@@ -15,7 +15,7 @@ from app.application.use_cases.manage_canteens import (
     UpdateCanteenUseCase,
 )
 from app.database.models import CanteenModel, OrderItemModel, OrderModel, OrderStatus, ProductModel, UserModel
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_admin
 from app.domain.exceptions import InvalidOrderStatusTransitionError, InvalidPinError
 from app.domain.order.order import Order
 from app.domain.catalog.canteen import Canteen
@@ -325,7 +325,7 @@ def _to_response(canteen: Canteen) -> CanteenResponse:
     summary="Create canteen",
     responses={201: {"description": "Canteen created successfully."}, 400: {"description": "Invalid canteen payload."}},
 )
-def create_canteen(payload: CanteenCreate, db: Session = Depends(get_db)) -> CanteenResponse:
+def create_canteen(payload: CanteenCreate, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> CanteenResponse:
     """Create a new canteen."""
     use_case = CreateCanteenUseCase(SQLAlchemyCanteenRepository(db))
     try:
@@ -379,7 +379,7 @@ def get_canteen(canteen_id: UUID, db: Session = Depends(get_db)) -> CanteenRespo
     summary="Update canteen",
     responses={404: {"description": "Canteen not found."}, 400: {"description": "Invalid update payload."}},
 )
-def update_canteen(canteen_id: UUID, payload: CanteenUpdate, db: Session = Depends(get_db)) -> CanteenResponse:
+def update_canteen(canteen_id: UUID, payload: CanteenUpdate, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> CanteenResponse:
     """Partially update canteen fields."""
     updates = payload.model_dump(exclude_unset=True)
     use_case = UpdateCanteenUseCase(SQLAlchemyCanteenRepository(db))
@@ -405,7 +405,7 @@ def update_canteen(canteen_id: UUID, payload: CanteenUpdate, db: Session = Depen
     summary="Delete canteen",
     responses={404: {"description": "Canteen not found."}},
 )
-def delete_canteen(canteen_id: UUID, db: Session = Depends(get_db)) -> dict[str, str]:
+def delete_canteen(canteen_id: UUID, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> dict[str, str]:
     """Delete a canteen by ID."""
     c = db.get(CanteenModel, canteen_id)
     if c is None:

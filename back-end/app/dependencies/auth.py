@@ -37,3 +37,11 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+
+def require_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Allow access only to authenticated platform administrators."""
+    role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
+    if role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
+    return current_user

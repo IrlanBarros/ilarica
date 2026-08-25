@@ -10,19 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.database.models import ProductModel, UserModel
 from app.database.session import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import require_admin
 from app.repositories.sqlalchemy_repositories import SQLAlchemyProductRepository
 from app.schemas.product_schemas import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product_service import ProductService
 from app.domain.catalog.product import Product
 
 router = APIRouter(prefix="/products", tags=["Products"])
-
-
-def _require_admin(current_user: UserModel) -> None:
-    role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
-    if role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
 
 
 @router.post(
@@ -35,9 +29,8 @@ def _require_admin(current_user: UserModel) -> None:
         400: {"description": "Invalid product payload."},
     },
 )
-def create_product(payload: ProductCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)) -> ProductResponse:
+def create_product(payload: ProductCreate, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> ProductResponse:
     """Create a new product for a canteen."""
-    _require_admin(current_user)
     service = ProductService(SQLAlchemyProductRepository(db))
 
     product = Product(
@@ -122,9 +115,8 @@ def get_product(product_id: str, db: Session = Depends(get_db)) -> ProductRespon
     summary="Update product",
     responses={404: {"description": "Product not found."}},
 )
-def update_product(product_id: str, payload: ProductUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)) -> ProductResponse:
+def update_product(product_id: str, payload: ProductUpdate, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> ProductResponse:
     """Update product data using a partial payload."""
-    _require_admin(current_user)
     product = db.get(ProductModel, product_id)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
@@ -153,9 +145,8 @@ def update_product(product_id: str, payload: ProductUpdate, db: Session = Depend
     summary="Delete product",
     responses={404: {"description": "Product not found."}},
 )
-def delete_product(product_id: str, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)) -> dict[str, str]:
+def delete_product(product_id: str, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> dict[str, str]:
     """Delete a product by ID."""
-    _require_admin(current_user)
     product = db.get(ProductModel, product_id)
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")

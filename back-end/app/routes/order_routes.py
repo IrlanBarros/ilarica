@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.database.models import CanteenModel, DropOffZoneModel, OrderItemModel, OrderModel, ProductModel, UserModel
 from app.database.session import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_admin
 from app.domain.order.order import Order
 from app.domain.order.order_item import OrderItem
 from app.repositories.sqlalchemy_repositories import (
@@ -233,7 +233,7 @@ def get_order(order_id: str, db: Session = Depends(get_db)) -> OrderResponse:
     summary="Update order",
     responses={404: {"description": "Order not found."}},
 )
-def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_db)) -> OrderResponse:
+def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> OrderResponse:
     """Partially update order fields."""
     order = db.get(OrderModel, order_id)
     if order is None:
@@ -264,7 +264,7 @@ def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_
     summary="Delete order",
     responses={404: {"description": "Order not found."}},
 )
-def delete_order(order_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+def delete_order(order_id: str, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> dict[str, str]:
     """Delete an order by ID."""
     order = db.get(OrderModel, order_id)
     if order is None:

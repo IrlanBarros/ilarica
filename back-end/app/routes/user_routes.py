@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, require_admin
 from app.database.session import get_db
 from app.database.models import UserModel
 from app.repositories.sqlalchemy_repositories import SQLAlchemyInvitationKeyRepository, SQLAlchemyUserRepository
@@ -78,7 +78,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> UserRespo
     response_model=list[UserResponse],
     summary="List users",
     responses={200: {"description": "List of users."}},
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def list_users(db: Session = Depends(get_db)) -> list[UserResponse]:
     """List all registered users."""
@@ -105,7 +105,7 @@ def get_current_user_profile(current_user: UserModel = Depends(get_current_user)
         200: {"description": "User found."},
         404: {"description": "User not found."},
     },
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def get_user(user_id: UUID, db: Session = Depends(get_db)) -> UserResponse:
     """Get a single user by ID."""
@@ -125,7 +125,7 @@ def get_user(user_id: UUID, db: Session = Depends(get_db)) -> UserResponse:
         404: {"description": "User not found."},
         400: {"description": "Invalid update payload."},
     },
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db)) -> UserResponse:
     """Update user fields using a partial payload."""
@@ -160,7 +160,7 @@ def update_user(user_id: UUID, payload: UserUpdate, db: Session = Depends(get_db
         200: {"description": "User deleted successfully."},
         404: {"description": "User not found."},
     },
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_admin)],
 )
 def delete_user(user_id: UUID, db: Session = Depends(get_db)) -> dict[str, str]:
     """Delete a user by ID."""
