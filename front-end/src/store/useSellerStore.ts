@@ -1,81 +1,44 @@
 import { create } from 'zustand';
 
-import itemOneImage from '../assets/figma/cart/item-1.png';
-import itemTwoImage from '../assets/figma/cart/item-2.png';
-import marmitaImage from '../assets/figma/mural/marmita.png';
-import { listSellerOrders, updateSellerOrderStatus } from '../services';
-import type { BusinessHoursEntry, SellerMenuItem, SellerOrder, SellerOrderStage, SellerSection } from '../types';
+import { createMyCanteenProduct, deleteMyCanteenProduct, getMyCanteen, listMyCanteenProducts, listSellerOrders, updateMyCanteen, updateMyCanteenProduct, updateSellerOrderStatus } from '../services';
+import type { BusinessHoursEntry, ProductCreate, ProductUpdate, SellerMenuItem, SellerOrder, SellerOrderStage, SellerSection } from '../types';
 
-const initialItems: SellerMenuItem[] = [
-  { id: 'mock-coxinha', name: 'Coxinha de Frango', description: 'A clássica coxinha de frango com requeijão cremoso, massa de batata ultra crocante.', price: '6.50', imageUrl: itemOneImage, isAvailable: true },
-  { id: 'mock-pastel', name: 'Pastel de Forno', description: 'Opção assada com recheio leve de ricota e espinafre, massa integral artesanal.', price: '7.00', imageUrl: itemTwoImage, isAvailable: true },
-  { id: 'mock-suco', name: 'Suco de Laranja 400ml', description: 'Espremido na hora, sem conservantes ou adição de água.', price: '5.50', imageUrl: marmitaImage, isAvailable: false },
-];
-
-const initialHours: BusinessHoursEntry[] = [
-  { id: 'weekdays', label: 'Segunda a Sexta', opensAt: '08h', closesAt: '18h', isOpen: true },
-  { id: 'saturday', label: 'Sábado', opensAt: '09h', closesAt: '13h', isOpen: true },
-  { id: 'sunday', label: 'Domingo', opensAt: '--:--', closesAt: '--:--', isOpen: false },
-];
+const labels: Record<BusinessHoursEntry['id'], string> = { weekdays: 'Segunda a Sexta', saturday: 'Sábado', sunday: 'Domingo' };
+const toItem = (product: Awaited<ReturnType<typeof listMyCanteenProducts>>[number]): SellerMenuItem => ({ id: product.id, name: product.name, description: product.description ?? '', price: String(product.price), imageUrl: product.image_url ?? '', isAvailable: product.is_active });
 
 interface SellerState {
-  activeSection: SellerSection;
-  items: SellerMenuItem[];
-  businessHours: BusinessHoursEntry[];
-  orders: SellerOrder[];
-  orderStage: SellerOrderStage;
-  isOrdersLoading: boolean;
-  ordersError: string | null;
-  transitioningOrderId: string | null;
-  setActiveSection: (section: SellerSection) => void;
-  toggleItemAvailability: (itemId: string) => void;
-  removeItem: (itemId: string) => void;
-  toggleBusinessDay: (dayId: BusinessHoursEntry['id']) => void;
-  updateBusinessHour: (dayId: BusinessHoursEntry['id'], field: 'opensAt' | 'closesAt', value: string) => void;
-  setOrderStage: (stage: SellerOrderStage) => void;
-  loadOrders: () => Promise<void>;
-  advanceOrder: (orderId: string) => Promise<void>;
-  resetOrders: () => void;
+  activeSection: SellerSection; items: SellerMenuItem[]; businessHours: BusinessHoursEntry[];
+  isCatalogLoading: boolean; catalogError: string | null; orders: SellerOrder[]; orderStage: SellerOrderStage;
+  isOrdersLoading: boolean; ordersError: string | null; transitioningOrderId: string | null;
+  setActiveSection: (section: SellerSection) => void; loadCatalog: () => Promise<void>;
+  createItem: (payload: ProductCreate) => Promise<void>; updateItem: (id: string, payload: ProductUpdate) => Promise<void>;
+  toggleItemAvailability: (id: string) => Promise<void>; removeItem: (id: string) => Promise<void>;
+  toggleBusinessDay: (id: BusinessHoursEntry['id']) => void;
+  updateBusinessHour: (id: BusinessHoursEntry['id'], field: 'opensAt' | 'closesAt', value: string) => void;
+  saveBusinessHours: () => Promise<void>; setOrderStage: (stage: SellerOrderStage) => void;
+  loadOrders: () => Promise<void>; advanceOrder: (id: string) => Promise<void>; resetOrders: () => void;
 }
 
-export const useSellerStore = create<SellerState>((set) => ({
-  activeSection: 'menu',
-  items: initialItems,
-  businessHours: initialHours,
-  orders: [],
-  orderStage: 'new',
-  isOrdersLoading: false,
-  ordersError: null,
-  transitioningOrderId: null,
+export const useSellerStore = create<SellerState>((set, get) => ({
+  activeSection: 'menu', items: [], businessHours: [], isCatalogLoading: false, catalogError: null,
+  orders: [], orderStage: 'new', isOrdersLoading: false, ordersError: null, transitioningOrderId: null,
   setActiveSection: (activeSection) => set({ activeSection }),
-  toggleItemAvailability: (itemId) => set((state) => ({ items: state.items.map((item) => item.id === itemId ? { ...item, isAvailable: !item.isAvailable } : item) })),
-  removeItem: (itemId) => set((state) => ({ items: state.items.filter((item) => item.id !== itemId) })),
-  toggleBusinessDay: (dayId) => set((state) => ({ businessHours: state.businessHours.map((entry) => entry.id === dayId ? { ...entry, isOpen: !entry.isOpen } : entry) })),
-  updateBusinessHour: (dayId, field, value) => set((state) => ({ businessHours: state.businessHours.map((entry) => entry.id === dayId ? { ...entry, [field]: value } : entry) })),
+  loadCatalog: async () => {
+    set({ isCatalogLoading: true, catalogError: null });
+    try {
+      const [products, canteen] = await Promise.all([listMyCanteenProducts(), getMyCanteen()]);
+      set({ items: products.map(toItem), businessHours: (canteen.opening_hours ?? []).map((entry) => ({ id: entry.day, label: labels[entry.day], opensAt: entry.opens_at, closesAt: entry.closes_at, isOpen: entry.is_open })), isCatalogLoading: false });
+    } catch { set({ isCatalogLoading: false, catalogError: 'Não foi possível carregar o cardápio da cantina.' }); }
+  },
+  createItem: async (payload) => { const created = toItem(await createMyCanteenProduct(payload)); set((state) => ({ items: [...state.items, created] })); },
+  updateItem: async (id, payload) => { const updated = toItem(await updateMyCanteenProduct(id, payload)); set((state) => ({ items: state.items.map((item) => item.id === id ? updated : item) })); },
+  toggleItemAvailability: async (id) => { const item = get().items.find((entry) => entry.id === id); if (item) await get().updateItem(id, { is_active: !item.isAvailable }); },
+  removeItem: async (id) => { await deleteMyCanteenProduct(id); set((state) => ({ items: state.items.filter((item) => item.id !== id) })); },
+  toggleBusinessDay: (id) => set((state) => ({ businessHours: state.businessHours.map((entry) => entry.id === id ? { ...entry, isOpen: !entry.isOpen } : entry) })),
+  updateBusinessHour: (id, field, value) => set((state) => ({ businessHours: state.businessHours.map((entry) => entry.id === id ? { ...entry, [field]: value } : entry) })),
+  saveBusinessHours: async () => { await updateMyCanteen({ opening_hours: get().businessHours.map((entry) => ({ day: entry.id, opens_at: entry.opensAt, closes_at: entry.closesAt, is_open: entry.isOpen })) }); },
   setOrderStage: (orderStage) => set({ orderStage }),
-  loadOrders: async () => {
-    set({ isOrdersLoading: true, ordersError: null });
-    try {
-      const orders = await listSellerOrders();
-      set({ orders, isOrdersLoading: false });
-    } catch {
-      set({ isOrdersLoading: false, ordersError: 'Não foi possível carregar os pedidos da cantina.' });
-    }
-  },
-  advanceOrder: async (orderId) => {
-    const order = useSellerStore.getState().orders.find((entry) => entry.id === orderId);
-    if (!order || order.status === 'ready_for_pickup') return;
-    const status = order.status === 'paid' ? 'preparing' : 'ready_for_pickup';
-    set({ transitioningOrderId: orderId, ordersError: null });
-    try {
-      const updated = await updateSellerOrderStatus(orderId, { status });
-      set((state) => ({
-        orders: state.orders.map((entry) => entry.id === orderId ? updated : entry),
-        transitioningOrderId: null,
-      }));
-    } catch {
-      set({ transitioningOrderId: null, ordersError: 'Não foi possível atualizar o pedido. Recarregue e tente novamente.' });
-    }
-  },
+  loadOrders: async () => { set({ isOrdersLoading: true, ordersError: null }); try { set({ orders: await listSellerOrders(), isOrdersLoading: false }); } catch { set({ isOrdersLoading: false, ordersError: 'Não foi possível carregar os pedidos da cantina.' }); } },
+  advanceOrder: async (id) => { const order = get().orders.find((entry) => entry.id === id); if (!order || order.status === 'ready_for_pickup') return; const status = order.status === 'paid' ? 'preparing' : 'ready_for_pickup'; set({ transitioningOrderId: id, ordersError: null }); try { const updated = await updateSellerOrderStatus(id, { status }); set((state) => ({ orders: state.orders.map((entry) => entry.id === id ? updated : entry), transitioningOrderId: null })); } catch { set({ transitioningOrderId: null, ordersError: 'Não foi possível atualizar o pedido. Recarregue e tente novamente.' }); } },
   resetOrders: () => set({ orders: [], orderStage: 'new', isOrdersLoading: false, ordersError: null, transitioningOrderId: null }),
 }));

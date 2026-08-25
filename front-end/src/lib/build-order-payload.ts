@@ -1,10 +1,11 @@
 import type { CartItem } from '../store/useCartStore';
-import type { OrderCreate, OrderItemCreate } from '../types';
+import type { FulfillmentType, OrderCreate, OrderItemCreate } from '../types';
 
 interface BuildOrderPayloadInput {
   customerId: string;
   canteenId: string | null;
-  dropOffZoneId: string;
+  fulfillmentType?: FulfillmentType;
+  dropOffZoneId: string | null;
   items: CartItem[];
 }
 
@@ -12,10 +13,12 @@ export function buildOrderPayload({
   customerId,
   canteenId,
   dropOffZoneId,
+  fulfillmentType,
   items,
 }: BuildOrderPayloadInput): OrderCreate {
-  if (!customerId || !canteenId || !dropOffZoneId) {
-    throw new Error('Customer, canteen and drop-off zone are required to build an order.');
+  const resolvedFulfillmentType = fulfillmentType ?? 'delivery';
+  if (!customerId || !canteenId || (resolvedFulfillmentType === 'delivery' && !dropOffZoneId)) {
+    throw new Error('Customer, canteen and delivery destination are required to build an order.');
   }
   if (items.length === 0) {
     throw new Error('At least one cart item is required to build an order.');
@@ -32,7 +35,8 @@ export function buildOrderPayload({
   return {
     customer_id: customerId,
     canteen_id: canteenId,
-    drop_off_zone_id: dropOffZoneId,
+    fulfillment_type: resolvedFulfillmentType,
+    drop_off_zone_id: resolvedFulfillmentType === 'pickup' ? null : dropOffZoneId,
     items: orderItems,
   };
 }

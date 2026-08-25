@@ -89,7 +89,7 @@ export function CheckoutPage(): React.JSX.Element {
     event.preventDefault();
     setError(null);
 
-    if (!user || !selectedZoneId) {
+    if (!user || (fulfillmentMethod === 'delivery' && !selectedZoneId)) {
       setError('Selecione um ponto válido antes de confirmar o pedido.');
       return;
     }
@@ -103,7 +103,8 @@ export function CheckoutPage(): React.JSX.Element {
         const payload = buildOrderPayload({
           customerId: user.id,
           canteenId,
-          dropOffZoneId: selectedZoneId,
+          fulfillmentType: fulfillmentMethod,
+          dropOffZoneId: fulfillmentMethod === 'delivery' ? selectedZoneId : null,
           items,
         });
         const order = await createOrder(payload);
@@ -186,14 +187,14 @@ export function CheckoutPage(): React.JSX.Element {
             </div>
           </fieldset>
 
-          <div className="mt-7">
-            <label htmlFor="drop-off-zone" className="font-display text-lg font-bold text-[#7a1e1e]">{fulfillmentMethod === 'pickup' ? 'Ponto de Retirada' : 'Ponto de Entrega no Campus'}</label>
+          {fulfillmentMethod === 'delivery' ? <div className="mt-7">
+            <label htmlFor="drop-off-zone" className="font-display text-lg font-bold text-[#7a1e1e]">Ponto de Entrega no Campus</label>
             <select id="drop-off-zone" value={selectedZoneId} onChange={(event) => setSelectedZoneId(event.target.value)} disabled={isLoadingZones || activeZones.length === 0} className="mt-3 h-12 w-full rounded-xl border border-transparent bg-[#fff1d6] px-4 outline-none focus:border-ilarica-orange disabled:cursor-not-allowed disabled:opacity-60">
               <option value="">{isLoadingZones ? 'Carregando pontos...' : 'Selecione um ponto'}</option>
               {activeZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
             </select>
             {!isLoadingZones && activeZones.length === 0 && <p className="mt-2 text-xs font-semibold text-[#9f321b]">Nenhum ponto está disponível no momento.</p>}
-          </div>
+          </div> : <div className="mt-7 rounded-2xl bg-[#eff9f1] p-4 text-sm text-[#237b39]"><strong>Retirada na cantina</strong><span className="mt-1 block">Você receberá um PIN quando o pedido estiver pronto.</span></div>}
 
           <div className="mt-6">
             <label htmlFor="reference" className="text-sm font-bold text-ilarica-muted">Sala / Laboratório / Referência <span className="font-normal">(opcional, somente para sua revisão)</span></label>

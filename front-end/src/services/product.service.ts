@@ -30,3 +30,19 @@ export async function deleteProduct(productId: string): Promise<ApiMessageRespon
 
   return response.data;
 }
+
+export async function listMyCanteenProducts(): Promise<Product[]> {
+  return (await apiClient.get<Product[]>('/canteens/me/products')).data;
+}
+
+export async function createMyCanteenProduct(payload: ProductCreate): Promise<Product> {
+  return (await apiClient.post<Product>('/canteens/me/products', payload)).data;
+}
+
+export async function updateMyCanteenProduct(productId: string, payload: ProductUpdate): Promise<Product> {
+  return (await apiClient.patch<Product>(`/canteens/me/products/${productId}`, payload)).data;
+}
+
+export async function deleteMyCanteenProduct(productId: string): Promise<void> {
+  await apiClient.delete(`/canteens/me/products/${productId}`);
+}

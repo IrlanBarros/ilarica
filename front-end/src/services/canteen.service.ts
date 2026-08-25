@@ -25,3 +25,11 @@ export async function deleteCanteen(canteenId: string): Promise<ApiMessageRespon
   const response = await apiClient.delete<ApiMessageResponse>(`/canteens/${canteenId}`);
   return response.data;
 }
+
+export async function getMyCanteen(): Promise<Canteen> {
+  return (await apiClient.get<Canteen>('/canteens/me')).data;
+}
+
+export async function updateMyCanteen(payload: CanteenUpdate): Promise<Canteen> {
+  return (await apiClient.patch<Canteen>('/canteens/me', payload)).data;
+}

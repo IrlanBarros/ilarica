@@ -5,6 +5,7 @@ export interface ProductBase {
   description: string | null;
   price: Money;
   is_active: boolean;
+  image_url?: string | null;
 }
 
 export interface Product extends ProductBase {
@@ -15,10 +16,11 @@ export interface Product extends ProductBase {
 
 export interface ProductCreate {
   name: string;
-  canteen_id: string;
+  canteen_id?: string;
   price: Money;
   description?: string | null;
   is_active?: boolean;
+  image_url?: string | null;
 }
 
 export interface ProductUpdate {
@@ -26,4 +28,5 @@ export interface ProductUpdate {
   description?: string | null;
   price?: Money | null;
   is_active?: boolean | null;
+  image_url?: string | null;
 }

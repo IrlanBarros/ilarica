@@ -1,5 +1,5 @@
 import { apiClient } from '../api';
-import type { ApiMessageResponse, Order, OrderCreate, OrderUpdate } from '../types';
+import type { ApiMessageResponse, CustomerOrder, Order, OrderCreate, OrderUpdate } from '../types';
 
 export async function listOrders(): Promise<Order[]> {
   const response = await apiClient.get<Order[]>('/orders/');
@@ -29,4 +29,8 @@ export async function deleteOrder(orderId: string): Promise<ApiMessageResponse> 
   const response = await apiClient.delete<ApiMessageResponse>(`/orders/${orderId}`);
 
   return response.data;
+}
+
+export async function listMyOrders(): Promise<CustomerOrder[]> {
+  return (await apiClient.get<CustomerOrder[]>('/orders/me')).data;
 }

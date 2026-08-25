@@ -9,6 +9,7 @@ import { CanteenPage } from '../pages/CanteenPage';
 import { CanteenDashboardPage } from '../pages/CanteenDashboardPage';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
+import { MyOrdersPage } from '../pages/MyOrdersPage';
 import { OrderSuccessPage } from '../pages/OrderSuccessPage';
 import { PaymentConfirmedPage } from '../pages/PaymentConfirmedPage';
 import { PixPaymentPage } from '../pages/PixPaymentPage';
@@ -70,7 +71,7 @@ export const router = createBrowserRouter([
           },
           {
             path: '/pedidos',
-            element: <RoleLandingPage title="Meus pedidos" description="Acompanhe seus pedidos em andamento e seu histórico." />,
+            element: <MyOrdersPage />,
           },
           {
             path: '/carteira',
