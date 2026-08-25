@@ -9,7 +9,7 @@ const toItem = (product: Awaited<ReturnType<typeof listMyCanteenProducts>>[numbe
 interface SellerState {
   activeSection: SellerSection; items: SellerMenuItem[]; businessHours: BusinessHoursEntry[];
   isCatalogLoading: boolean; catalogError: string | null; orders: SellerOrder[]; orderHistory: SellerOrder[]; orderStage: SellerOrderStage;
-  isOrdersLoading: boolean; isOrdersRefreshing: boolean; ordersError: string | null; transitioningOrderId: string | null; confirmingOrderId: string | null;
+  isOrdersLoading: boolean; isOrdersRefreshing: boolean; ordersError: string | null; ordersNotice: string | null; transitioningOrderId: string | null; confirmingOrderId: string | null;
   setActiveSection: (section: SellerSection) => void; loadCatalog: () => Promise<void>;
   createItem: (payload: ProductCreate) => Promise<void>; updateItem: (id: string, payload: ProductUpdate) => Promise<void>;
   toggleItemAvailability: (id: string) => Promise<void>; removeItem: (id: string) => Promise<void>;
@@ -22,7 +22,7 @@ interface SellerState {
 
 export const useSellerStore = create<SellerState>((set, get) => ({
   activeSection: 'menu', items: [], businessHours: [], isCatalogLoading: false, catalogError: null,
-  orders: [], orderHistory: [], orderStage: 'new', isOrdersLoading: false, isOrdersRefreshing: false, ordersError: null, transitioningOrderId: null, confirmingOrderId: null,
+  orders: [], orderHistory: [], orderStage: 'new', isOrdersLoading: false, isOrdersRefreshing: false, ordersError: null, ordersNotice: null, transitioningOrderId: null, confirmingOrderId: null,
   setActiveSection: (activeSection) => set({ activeSection }),
   loadCatalog: async () => {
     set({ isCatalogLoading: true, catalogError: null });
@@ -49,16 +49,16 @@ export const useSellerStore = create<SellerState>((set, get) => ({
       set({ isOrdersLoading: false, isOrdersRefreshing: false, ordersError: 'Não foi possível atualizar os pedidos da cantina.' });
     }
   },
-  advanceOrder: async (id) => { const order = get().orders.find((entry) => entry.id === id); if (!order || order.status === 'ready_for_pickup') return; const status = order.status === 'paid' ? 'preparing' : 'ready_for_pickup'; set({ transitioningOrderId: id, ordersError: null }); try { const updated = await updateSellerOrderStatus(id, { status }); set((state) => ({ orders: state.orders.map((entry) => entry.id === id ? updated : entry), transitioningOrderId: null })); } catch { set({ transitioningOrderId: null, ordersError: 'Não foi possível atualizar o pedido. Recarregue e tente novamente.' }); } },
+  advanceOrder: async (id) => { const order = get().orders.find((entry) => entry.id === id); if (!order || order.status === 'ready_for_pickup' || order.status === 'completed') return; const status = order.status === 'paid' ? 'preparing' : 'ready_for_pickup'; set({ transitioningOrderId: id, ordersError: null, ordersNotice: null }); try { const updated = await updateSellerOrderStatus(id, { status }); set((state) => ({ orders: state.orders.map((entry) => entry.id === id ? updated : entry), transitioningOrderId: null, ordersNotice: status === 'preparing' ? 'Pedido aceito e enviado para preparo.' : 'Cliente avisado: pedido pronto para retirada.' })); } catch { set({ transitioningOrderId: null, ordersError: 'Não foi possível atualizar o pedido. Recarregue e tente novamente.' }); } },
   confirmPickup: async (id, pin) => {
-    set({ confirmingOrderId: id, ordersError: null });
+    set({ confirmingOrderId: id, ordersError: null, ordersNotice: null });
     try {
       await confirmSellerOrderPickup(id, pin);
-      set((state) => ({ orders: state.orders.filter((order) => order.id !== id), confirmingOrderId: null }));
+      set((state) => ({ orders: state.orders.filter((order) => order.id !== id), confirmingOrderId: null, ordersNotice: 'Retirada confirmada com sucesso.' }));
     } catch (error) {
       set({ confirmingOrderId: null, ordersError: 'PIN inválido ou pedido indisponível para retirada.' });
       throw error;
     }
   },
-  resetOrders: () => set({ orders: [], orderHistory: [], orderStage: 'new', isOrdersLoading: false, isOrdersRefreshing: false, ordersError: null, transitioningOrderId: null, confirmingOrderId: null }),
+  resetOrders: () => set({ orders: [], orderHistory: [], orderStage: 'new', isOrdersLoading: false, isOrdersRefreshing: false, ordersError: null, ordersNotice: null, transitioningOrderId: null, confirmingOrderId: null }),
 }));

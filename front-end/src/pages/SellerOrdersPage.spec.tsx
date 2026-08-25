@@ -30,6 +30,7 @@ describe('SellerOrdersPage', () => {
     orderStage: 'new',
     isOrdersLoading: false,
     ordersError: null,
+    ordersNotice: null,
     transitioningOrderId: null,
     confirmingOrderId: null,
     loadOrders: async () => undefined,

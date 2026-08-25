@@ -61,6 +61,7 @@ export function SellerOrdersPage(): React.JSX.Element {
   const setOrderStage = useSellerStore((state) => state.setOrderStage);
   const isLoading = useSellerStore((state) => state.isOrdersLoading);
   const error = useSellerStore((state) => state.ordersError);
+  const notice = useSellerStore((state) => state.ordersNotice);
   const loadOrders = useSellerStore((state) => state.loadOrders);
   useEffect(() => { void loadOrders(); }, [loadOrders]);
   useControlledPolling(() => loadOrders(false), 15_000);
@@ -69,6 +70,7 @@ export function SellerOrdersPage(): React.JSX.Element {
   return <main className="min-h-screen bg-[#fff1d6] text-ilarica-ink"><Header /><div className="mx-auto grid w-full max-w-[1440px] gap-6 px-5 py-7 sm:px-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10 lg:px-16 lg:py-10"><Sidebar /><section><div><h1 className="font-display text-3xl font-extrabold text-[#7a1e1e] sm:text-4xl">Pedidos Recebidos</h1><p className="mt-1 text-base text-ilarica-muted">Acompanhe os pedidos e mantenha o cliente informado em cada etapa.</p></div>
     <div className="mt-7 flex gap-2 overflow-x-auto rounded-2xl bg-white p-1.5" role="tablist" aria-label="Status dos pedidos">{tabs.map((tab) => { const source = tab.id === 'history' ? orderHistory : orders; const count = source.filter((order) => order.status === stageStatus[tab.id]).length; return <button key={tab.id} type="button" role="tab" aria-selected={activeStage === tab.id} onClick={() => setOrderStage(tab.id)} className={`flex min-w-[130px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${activeStage === tab.id ? 'bg-[#7a1e1e] text-white' : 'text-ilarica-muted hover:bg-[#fffaf2]'}`}>{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeStage === tab.id ? 'bg-white/20 text-white' : 'bg-[#fff0e8] text-ilarica-orange'}`}>{count}</span></button>; })}</div>
     {error && <div role="alert" className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-[#efb5b5] bg-[#fff1f1] px-4 py-3 text-sm text-[#9d2323]"><span>{error}</span><button type="button" className="shrink-0 font-bold underline" onClick={() => void loadOrders()}>Tentar novamente</button></div>}
+    {notice && <div role="status" aria-live="polite" className="mt-5 rounded-xl border border-[#bde3c5] bg-[#eff9f1] px-4 py-3 text-sm font-semibold text-[#237b39]">{notice}</div>}
     <div className="mt-5 space-y-4">{isLoading && <Card className="p-10 text-center shadow-none"><p className="font-display text-lg font-bold text-[#7a1e1e]">Carregando pedidos...</p></Card>}{!isLoading && filtered.map((order) => <OrderCard key={order.id} order={order} />)}{!isLoading && !error && filtered.length === 0 && <Card className="border-dashed p-10 text-center shadow-none"><p className="font-display text-lg font-bold text-[#7a1e1e]">Nenhum pedido nesta etapa</p><p className="mt-1 text-sm text-ilarica-muted">Os próximos pedidos aparecerão aqui automaticamente.</p></Card>}</div>
   </section></div></main>;
 }

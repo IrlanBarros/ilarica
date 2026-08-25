@@ -5,7 +5,7 @@ import forkKnifeIcon from '../assets/figma/cart/fork-knife.svg';
 import searchIcon from '../assets/figma/cart/search.svg';
 import shoppingCartIcon from '../assets/figma/cart/shopping-cart.svg';
 import vendorImage from '../assets/figma/canteen/vendor-hero.png';
-import { Button, Card, Input } from '../components/ui';
+import { Button, Card, ConfirmDialog, Input } from '../components/ui';
 import { useSellerStore } from '../store';
 import type { BusinessHoursEntry, SellerMenuItem, SellerSection } from '../types';
 
@@ -61,28 +61,49 @@ function SellerSidebar(): React.JSX.Element {
 function MenuItemCard({ item, onEdit, onNotice }: { item: SellerMenuItem; onEdit: (item: SellerMenuItem) => void; onNotice: (message: string) => void }): React.JSX.Element {
   const toggle = useSellerStore((state) => state.toggleItemAvailability);
   const remove = useSellerStore((state) => state.removeItem);
+  const [pendingAction, setPendingAction] = useState<'toggle' | 'delete' | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  async function toggleAvailability(): Promise<void> {
+    setPendingAction('toggle');
+    try { await toggle(item.id); onNotice(`Produto ${item.isAvailable ? 'desativado' : 'ativado'} com sucesso.`); }
+    catch { onNotice('Não foi possível alterar a disponibilidade do produto.'); }
+    finally { setPendingAction(null); }
+  }
+  async function deleteItem(): Promise<void> {
+    setPendingAction('delete');
+    try { await remove(item.id); setConfirmDelete(false); onNotice('Produto excluído com sucesso.'); }
+    catch { onNotice('Não foi possível excluir o produto.'); }
+    finally { setPendingAction(null); }
+  }
   return (
-    <Card className="grid gap-4 border-[#eadfce] p-4 shadow-none sm:grid-cols-[100px_minmax(0,1fr)] lg:grid-cols-[100px_minmax(0,1fr)_auto] lg:items-center">
+    <><Card className="grid gap-4 border-[#eadfce] p-4 shadow-none sm:grid-cols-[100px_minmax(0,1fr)] lg:grid-cols-[100px_minmax(0,1fr)_auto] lg:items-center">
       <img src={item.imageUrl || vendorImage} alt="" className="h-[100px] w-[100px] rounded-xl object-cover" />
       <div className="min-w-0"><h3 className="font-display text-lg font-extrabold text-[#7a1e1e]">{item.name}</h3><p className="mt-1 max-w-xl text-sm leading-snug text-ilarica-muted">{item.description}</p><p className="mt-1 font-display text-base font-extrabold text-ilarica-orange">{currency.format(Number(item.price))}</p></div>
       <div className="col-span-full flex flex-wrap items-center justify-end gap-3 lg:col-span-1 lg:flex-nowrap">
         <span className={`text-xs ${item.isAvailable ? 'text-[#269b45]' : 'text-ilarica-muted'}`}>{item.isAvailable ? 'Disponível' : 'Indisponível'}</span>
-        <AvailabilitySwitch checked={item.isAvailable} label={`Alterar disponibilidade de ${item.name}`} onChange={() => toggle(item.id)} />
-        <Button variant="secondary" size="sm" className="ml-2 rounded-lg bg-[#fff1d6] text-ilarica-muted hover:bg-[#f8e4bd]" onClick={() => onEdit(item)}>Editar</Button>
-        <Button variant="danger" size="sm" className="rounded-lg bg-[#ffe7e7] text-[#e22626] hover:bg-[#ffd5d5]" onClick={() => { void remove(item.id).catch(() => onNotice('Não foi possível excluir o produto.')); }}>Excluir</Button>
+        {pendingAction === 'toggle' ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#26a146] border-t-transparent" aria-label="Atualizando disponibilidade" /> : <AvailabilitySwitch checked={item.isAvailable} label={`Alterar disponibilidade de ${item.name}`} onChange={() => { void toggleAvailability(); }} />}
+        <Button variant="secondary" size="sm" disabled={pendingAction !== null} className="ml-2 rounded-lg bg-[#fff1d6] text-ilarica-muted hover:bg-[#f8e4bd]" onClick={() => onEdit(item)}>Editar</Button>
+        <Button variant="danger" size="sm" disabled={pendingAction !== null} className="rounded-lg bg-[#ffe7e7] text-[#e22626] hover:bg-[#ffd5d5]" onClick={() => setConfirmDelete(true)}>Excluir</Button>
       </div>
-    </Card>
+    </Card><ConfirmDialog open={confirmDelete} title="Excluir produto?" description={`“${item.name}” será removido do cardápio. Esta ação não pode ser desfeita.`} confirmLabel="Excluir produto" isLoading={pendingAction === 'delete'} onCancel={() => setConfirmDelete(false)} onConfirm={() => { void deleteItem(); }} /></>
   );
 }
 
-function BusinessHoursPanel({ onSaved }: { onSaved: () => void }): React.JSX.Element {
+function BusinessHoursPanel({ onSaved }: { onSaved: (success: boolean) => void }): React.JSX.Element {
   const hours = useSellerStore((state) => state.businessHours);
   const toggleDay = useSellerStore((state) => state.toggleBusinessDay);
   const updateHour = useSellerStore((state) => state.updateBusinessHour);
   const saveBusinessHours = useSellerStore((state) => state.saveBusinessHours);
+  const [saving, setSaving] = useState(false);
+  async function save(): Promise<void> {
+    setSaving(true);
+    try { await saveBusinessHours(); onSaved(true); }
+    catch { onSaved(false); }
+    finally { setSaving(false); }
+  }
   return (
     <Card className="mt-8 border-0 p-6 shadow-none sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="font-display text-xl font-extrabold text-[#7a1e1e]">Horário de Funcionamento</h2><Button variant="ghost" className="h-9 rounded-xl border border-ilarica-orange px-4 text-sm text-ilarica-orange hover:bg-[#fff0e8]" onClick={() => { void saveBusinessHours().then(onSaved); }}>Salvar Alterações</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="font-display text-xl font-extrabold text-[#7a1e1e]">Horário de Funcionamento</h2><Button variant="ghost" isLoading={saving} loadingText="Salvando..." className="h-9 rounded-xl border border-ilarica-orange px-4 text-sm text-ilarica-orange hover:bg-[#fff0e8]" onClick={() => { void save(); }}>Salvar Alterações</Button></div>
       <div className="mt-6 divide-y divide-[#eee5d9]">
         {hours.map((entry: BusinessHoursEntry) => <div key={entry.id} className="grid items-center gap-3 py-5 sm:grid-cols-[minmax(140px,1fr)_120px_28px_120px_minmax(130px,1fr)]">
           <strong className="text-sm">{entry.label}</strong>
@@ -108,6 +129,7 @@ export function CanteenDashboardPage(): React.JSX.Element {
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState<SellerMenuItem | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', price: '', image_url: '' });
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog]);
@@ -120,11 +142,14 @@ export function CanteenDashboardPage(): React.JSX.Element {
 
   async function submitItem(event: React.FormEvent): Promise<void> {
     event.preventDefault();
+    if (savingItem) return;
+    setSavingItem(true); setNotice('');
     try {
       const payload = { name: form.name, description: form.description || null, price: form.price, image_url: form.image_url || null, is_active: editing?.isAvailable ?? true };
       if (editing) await updateItem(editing.id, payload); else await createItem(payload);
       setShowForm(false); setNotice('Produto salvo com sucesso.');
     } catch { setNotice('Não foi possível salvar o produto. Revise os dados e tente novamente.'); }
+    finally { setSavingItem(false); }
   }
 
   return (
@@ -135,11 +160,11 @@ export function CanteenDashboardPage(): React.JSX.Element {
         <section>
           <div className="flex flex-wrap items-start justify-between gap-5"><div><h1 className="font-display text-4xl font-extrabold text-[#7a1e1e]">Meu Cardápio</h1><p className="mt-1 text-base text-ilarica-muted">Gerencie seus produtos, preços e disponibilidade na plataforma.</p></div><Button leftIcon={<span aria-hidden="true" className="text-xl font-normal">+</span>} className="h-12 rounded-full bg-ilarica-orange px-7 hover:bg-[#ed5925]" onClick={() => openForm()}>Adicionar Item</Button></div>
           {activeSection !== 'menu' && <div className="mt-6 rounded-xl border border-[#f2d49f] bg-white px-4 py-3 text-sm text-[#7a1e1e]">A seção “{sections.find((section) => section.id === activeSection)?.label}” será implementada na próxima etapa visual. <button className="font-bold underline" onClick={() => setActiveSection('menu')}>Voltar ao cardápio</button></div>}
-          {notice && <p role="status" className="mt-5 rounded-xl border border-[#f1d9b4] bg-white px-4 py-3 text-sm text-[#7a1e1e]">{notice}</p>}
+          {notice && <p role="status" aria-live="polite" className="mt-5 rounded-xl border border-[#f1d9b4] bg-white px-4 py-3 text-sm text-[#7a1e1e]">{notice}</p>}
           {catalogError && <p role="alert" className="mt-5 rounded-xl bg-[#ffe7e7] p-4 text-[#a32020]">{catalogError}</p>}
-          {showForm && <Card className="mt-6 border-[#eadfce] p-5"><form onSubmit={(event) => { void submitItem(event); }} className="grid gap-4 sm:grid-cols-2"><Input required minLength={2} placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><Input required type="number" min="0.01" step="0.01" placeholder="Preço" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /><Input placeholder="URL da imagem" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /><div className="flex gap-3 sm:col-span-2"><Button type="submit">Salvar produto</Button><Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancelar</Button></div></form></Card>}
+          {showForm && <Card className="mt-6 border-[#eadfce] p-5"><form onSubmit={(event) => { void submitItem(event); }} className="grid gap-4 sm:grid-cols-2"><Input required minLength={2} disabled={savingItem} placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><Input required type="number" min="0.01" step="0.01" disabled={savingItem} placeholder="Preço" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input disabled={savingItem} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /><Input disabled={savingItem} placeholder="URL da imagem" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /><div className="flex gap-3 sm:col-span-2"><Button type="submit" isLoading={savingItem} loadingText="Salvando...">Salvar produto</Button><Button type="button" variant="secondary" disabled={savingItem} onClick={() => setShowForm(false)}>Cancelar</Button></div></form></Card>}
           <div className="mt-7 space-y-4">{isLoading && <Card className="p-8 text-center">Carregando cardápio...</Card>}{!isLoading && items.map((item) => <MenuItemCard key={item.id} item={item} onEdit={openForm} onNotice={setNotice} />)}{!isLoading && items.length === 0 && <Card className="border-dashed p-8 text-center text-ilarica-muted">Nenhum produto cadastrado.</Card>}</div>
-          <BusinessHoursPanel onSaved={() => setNotice('Horários salvos com sucesso.')} />
+          <BusinessHoursPanel onSaved={(success) => setNotice(success ? 'Horários salvos com sucesso.' : 'Não foi possível salvar os horários. Tente novamente.')} />
         </section>
       </div>
     </main>
