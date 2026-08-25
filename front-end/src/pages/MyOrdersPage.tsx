@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button, Card } from '../components/ui';
+import { useControlledPolling } from '../lib/useControlledPolling';
 import { listMyOrders } from '../services';
 import type { CustomerOrder } from '../types';
 
@@ -14,14 +15,19 @@ export function MyOrdersPage(): React.JSX.Element {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestInFlight = useRef(false);
 
-  async function load(): Promise<void> {
-    setLoading(true); setError(null);
+  async function load(showLoading = true): Promise<void> {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
+    if (showLoading) setLoading(true);
+    setError(null);
     try { setOrders(await listMyOrders()); }
     catch { setError('Não foi possível carregar seus pedidos.'); }
-    finally { setLoading(false); }
+    finally { setLoading(false); requestInFlight.current = false; }
   }
   useEffect(() => { void load(); }, []);
+  useControlledPolling(() => load(false), 20_000);
 
   return <main className="min-h-screen bg-[#fff1d6] px-5 py-8 sm:px-8 lg:px-16">
     <div className="mx-auto max-w-5xl">

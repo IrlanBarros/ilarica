@@ -6,6 +6,7 @@ import forkKnifeIcon from '../assets/figma/cart/fork-knife.svg';
 import searchIcon from '../assets/figma/cart/search.svg';
 import vendorImage from '../assets/figma/canteen/vendor-hero.png';
 import { Button, Card } from '../components/ui';
+import { useControlledPolling } from '../lib/useControlledPolling';
 import { useSellerStore } from '../store';
 import type { SellerOrder, SellerOrderStage } from '../types';
 
@@ -62,6 +63,7 @@ export function SellerOrdersPage(): React.JSX.Element {
   const error = useSellerStore((state) => state.ordersError);
   const loadOrders = useSellerStore((state) => state.loadOrders);
   useEffect(() => { void loadOrders(); }, [loadOrders]);
+  useControlledPolling(() => loadOrders(false), 15_000);
   const visibleOrders = activeStage === 'history' ? orderHistory : orders;
   const filtered = visibleOrders.filter((order) => order.status === stageStatus[activeStage]);
   return <main className="min-h-screen bg-[#fff1d6] text-ilarica-ink"><Header /><div className="mx-auto grid w-full max-w-[1440px] gap-6 px-5 py-7 sm:px-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10 lg:px-16 lg:py-10"><Sidebar /><section><div><h1 className="font-display text-3xl font-extrabold text-[#7a1e1e] sm:text-4xl">Pedidos Recebidos</h1><p className="mt-1 text-base text-ilarica-muted">Acompanhe os pedidos e mantenha o cliente informado em cada etapa.</p></div>
