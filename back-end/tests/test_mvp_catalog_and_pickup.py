@@ -32,7 +32,7 @@ def test_seller_product_crud_is_scoped_to_owned_canteen(client: TestClient, db_s
 
 def test_seller_can_persist_business_hours(client: TestClient, db_session: Session) -> None:
     staff = _user("canteen_staff", "Staff")
-    canteen = CanteenModel(id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco H", is_open=True)
+    canteen = CanteenModel(id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco H", is_open=True, moderation_status="approved")
     db_session.add_all([staff, canteen])
     db_session.commit()
     app.dependency_overrides[get_current_user] = lambda: staff
@@ -44,7 +44,7 @@ def test_seller_can_persist_business_hours(client: TestClient, db_session: Sessi
 
 def test_pickup_order_needs_no_drop_off_zone_and_is_visible_only_to_customer(client: TestClient, db_session: Session) -> None:
     customer, other, staff = _user("customer", "Customer"), _user("customer", "Other"), _user("canteen_staff", "Staff")
-    canteen = CanteenModel(id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco H", is_open=True)
+    canteen = CanteenModel(id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco H", is_open=True, moderation_status="approved")
     product = ProductModel(id=uuid4(), canteen_id=canteen.id, name="Coxinha", price="8.00", category="salgados", stock_quantity=5, is_active=True, is_fast_stock_enabled=True)
     db_session.add_all([customer, other, staff, canteen, product])
     db_session.commit()

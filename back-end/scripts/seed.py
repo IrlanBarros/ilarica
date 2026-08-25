@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import random
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -128,7 +129,11 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
                 user_id=owner.id,
                 name=canteen_name,
                 location=location,
+                description=f"Produtos frescos e atendimento no {location}.",
+                logo_url="https://placehold.co/512x512/png?text=iLarica",
                 is_open=True,
+                commercial_terms_accepted_at=datetime.now(timezone.utc),
+                moderation_status="approved",
                 opening_hours=[
                     {"day": "weekdays", "opens_at": "08:00", "closes_at": "18:00", "is_open": True},
                     {"day": "saturday", "opens_at": "09:00", "closes_at": "13:00", "is_open": True},

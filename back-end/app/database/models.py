@@ -52,6 +52,7 @@ class UserModel(Base):
 
     canteens: Mapped[list["CanteenModel"]] = relationship(
         back_populates="user",
+        foreign_keys="CanteenModel.user_id",
         cascade="all, delete-orphan",
     )
     orders: Mapped[list["OrderModel"]] = relationship(
@@ -146,10 +147,21 @@ class CanteenModel(Base):
     )
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     location: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     opening_hours: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    commercial_terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    moderation_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    moderation_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    moderated_by_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    user: Mapped[UserModel] = relationship(back_populates="canteens")
+    user: Mapped[UserModel] = relationship(back_populates="canteens", foreign_keys=[user_id])
     products: Mapped[list["ProductModel"]] = relationship(
         back_populates="canteen",
         cascade="all, delete-orphan",

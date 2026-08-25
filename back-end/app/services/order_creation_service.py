@@ -81,6 +81,8 @@ class OrderCreationService:
             )
             if canteen is None:
                 raise OrderCreationError("not_found", "Canteen not found")
+            if canteen.moderation_status != "approved":
+                raise OrderCreationError("conflict", "The selected canteen is not approved")
             if not is_canteen_accepting_orders(canteen):
                 raise OrderCreationError("conflict", "The selected canteen is currently unavailable")
 

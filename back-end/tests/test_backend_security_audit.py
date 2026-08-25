@@ -30,7 +30,11 @@ def test_customer_cannot_read_another_customers_order(
     attacker = _user("customer", "Attacker")
     staff = _user("canteen_staff", "Staff")
     canteen = CanteenModel(
-        id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco A", is_open=True
+        id=uuid4(),
+        user_id=staff.id,
+        name="Cantina",
+        location="Bloco A",
+        is_open=True,
     )
     order = OrderModel(
         id=uuid4(), customer_id=owner.id, canteen_id=canteen.id,
@@ -52,7 +56,12 @@ def test_canteen_staff_cannot_create_customer_order(
 ) -> None:
     staff = _user("canteen_staff", "Staff")
     canteen = CanteenModel(
-        id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco A", is_open=True
+        id=uuid4(),
+        user_id=staff.id,
+        name="Cantina",
+        location="Bloco A",
+        is_open=True,
+        moderation_status="approved",
     )
     product = ProductModel(
         id=uuid4(), canteen_id=canteen.id, name="Produto", price="8.00",
@@ -81,7 +90,12 @@ def test_created_order_returns_persisted_item_identifier(
     customer = _user("customer", "Customer")
     staff = _user("canteen_staff", "Staff")
     canteen = CanteenModel(
-        id=uuid4(), user_id=staff.id, name="Cantina", location="Bloco A", is_open=True
+        id=uuid4(),
+        user_id=staff.id,
+        name="Cantina",
+        location="Bloco A",
+        is_open=True,
+        moderation_status="approved",
     )
     product = ProductModel(
         id=uuid4(), canteen_id=canteen.id, name="Produto", price="8.00",

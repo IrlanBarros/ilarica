@@ -8,7 +8,7 @@ export function AppHeader(): React.JSX.Element {
   const user = useAuthStore((state) => state.user);
   const home = user ? getRoleHome(user.role) : '/';
   const navigation = user?.role === 'canteen_staff'
-    ? [{ label: 'Pedidos', to: '/vendedor/pedidos' }, { label: 'Cardápio', to: '/vendedor/cardapio' }]
+    ? [{ label: 'Pedidos', to: '/vendedor/pedidos' }, { label: 'Cardápio', to: '/vendedor/cardapio' }, { label: 'Perfil comercial', to: '/vendedor/onboarding' }]
     : user?.role === 'courier'
       ? [{ label: 'Entregas', to: '/entregas' }]
       : user?.role === 'admin'

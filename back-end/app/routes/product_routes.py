@@ -9,7 +9,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.database.models import ProductModel, UserModel
+from app.database.models import CanteenModel, ProductModel, UserModel
 from app.database.session import get_db
 from app.dependencies.auth import require_admin
 from app.repositories.sqlalchemy_repositories import SQLAlchemyProductRepository
@@ -73,7 +73,13 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db), _: Use
 )
 def list_products(db: Session = Depends(get_db)) -> list[ProductResponse]:
     """List all products."""
-    products = db.query(ProductModel).order_by(ProductModel.name.asc()).all()
+    products = (
+        db.query(ProductModel)
+        .join(CanteenModel, CanteenModel.id == ProductModel.canteen_id)
+        .filter(CanteenModel.moderation_status == "approved")
+        .order_by(ProductModel.name.asc())
+        .all()
+    )
     return [
         ProductResponse(
             id=str(product.id),
@@ -99,7 +105,12 @@ def list_products(db: Session = Depends(get_db)) -> list[ProductResponse]:
 )
 def get_product(product_id: str, db: Session = Depends(get_db)) -> ProductResponse:
     """Get a product by ID."""
-    product = db.get(ProductModel, product_id)
+    product = (
+        db.query(ProductModel)
+        .join(CanteenModel, CanteenModel.id == ProductModel.canteen_id)
+        .filter(ProductModel.id == product_id, CanteenModel.moderation_status == "approved")
+        .one_or_none()
+    )
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 

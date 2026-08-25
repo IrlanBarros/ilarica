@@ -33,7 +33,7 @@ def _catalog(
     )
     canteen = CanteenModel(
         id=uuid4(), user_id=staff.id, name="Cantina QA", location="Bloco C",
-        is_open=True, opening_hours=opening_hours or [],
+        is_open=True, opening_hours=opening_hours or [], moderation_status="approved",
     )
     product = ProductModel(
         id=uuid4(), canteen_id=canteen.id, name="Coxinha QA", description=None,

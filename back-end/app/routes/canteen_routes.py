@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Literal, cast
 from uuid import UUID
@@ -26,6 +27,8 @@ from app.repositories.sqlalchemy_repositories import SQLAlchemyCanteenRepository
 from app.schemas.canteen_schemas import (
     BusinessHoursEntry,
     CanteenCreate,
+    CanteenModerationUpdate,
+    CanteenOnboarding,
     CanteenResponse,
     CanteenUpdate,
 )
@@ -124,6 +127,90 @@ def update_my_canteen(
     db.commit()
     db.refresh(canteen)
     return CanteenResponse.model_validate(canteen)
+
+
+@router.post("/me/onboarding", response_model=CanteenResponse)
+def submit_my_canteen_onboarding(
+    payload: CanteenOnboarding,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_canteen_staff),
+) -> CanteenResponse:
+    """Persist the commercial profile and server-authoritative terms timestamp."""
+    canteen = _owned_canteen(db, current_user)
+    canteen.description = payload.description
+    canteen.logo_url = payload.logo_url
+    if canteen.commercial_terms_accepted_at is None:
+        canteen.commercial_terms_accepted_at = datetime.now(timezone.utc)
+    if canteen.moderation_status == "rejected":
+        canteen.moderation_status = "pending"
+        canteen.rejection_reason = None
+        canteen.moderation_reviewed_at = None
+        canteen.moderated_by_id = None
+    try:
+        db.add(canteen)
+        db.flush()
+        response = CanteenResponse.model_validate(canteen)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return response
+
+
+@router.get("/moderation", response_model=list[CanteenResponse])
+def list_canteens_for_moderation(
+    moderation_status: Literal["pending", "approved", "rejected"] | None = None,
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_admin),
+) -> list[CanteenResponse]:
+    """List commercial registrations for administrators only."""
+    query = db.query(CanteenModel)
+    if moderation_status is not None:
+        query = query.filter(CanteenModel.moderation_status == moderation_status)
+    return [CanteenResponse.model_validate(item) for item in query.order_by(CanteenModel.name).all()]
+
+
+@router.patch("/{canteen_id}/moderation", response_model=CanteenResponse)
+def moderate_canteen(
+    canteen_id: UUID,
+    payload: CanteenModerationUpdate,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(require_admin),
+) -> CanteenResponse:
+    """Approve or reject one complete commercial registration under a row lock."""
+    canteen = (
+        db.query(CanteenModel)
+        .filter(CanteenModel.id == canteen_id)
+        .with_for_update()
+        .one_or_none()
+    )
+    if canteen is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Canteen not found")
+    if canteen.commercial_terms_accepted_at is None or not canteen.description or not canteen.logo_url:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Canteen onboarding must be complete before moderation",
+        )
+    if payload.status == "rejected" and not payload.rejection_reason:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A rejection reason is required",
+        )
+    canteen.moderation_status = payload.status
+    canteen.rejection_reason = payload.rejection_reason if payload.status == "rejected" else None
+    canteen.moderation_reviewed_at = datetime.now(timezone.utc)
+    canteen.moderated_by_id = current_admin.id
+    if payload.status == "rejected":
+        canteen.is_open = False
+    try:
+        db.add(canteen)
+        db.flush()
+        response = CanteenResponse.model_validate(canteen)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return response
 
 
 @router.get("/me/products", response_model=list[ProductResponse], summary="List authenticated canteen products")
@@ -312,17 +399,27 @@ def confirm_my_canteen_order_pickup(
 
 
 def _to_response(canteen: Canteen) -> CanteenResponse:
-    accepting_orders = is_canteen_accepting_orders(canteen)
+    accepting_orders = (
+        canteen.moderation_status == "approved" and is_canteen_accepting_orders(canteen)
+    )
     return CanteenResponse(
         id=UUID(canteen.id),
         user_id=UUID(canteen.user_id),
         name=canteen.name,
         location=canteen.location,
+        description=canteen.description,
+        logo_url=canteen.logo_url,
         is_open=canteen.is_open,
         products=[UUID(product_id) for product_id in canteen.products],
         opening_hours=[BusinessHoursEntry.model_validate(entry) for entry in canteen.opening_hours],
         is_accepting_orders=accepting_orders,
         next_opening_at=None if accepting_orders else next_canteen_opening(canteen),
+        commercial_terms_accepted_at=canteen.commercial_terms_accepted_at,
+        moderation_status=cast(
+            Literal["pending", "approved", "rejected"], canteen.moderation_status
+        ),
+        moderation_reviewed_at=canteen.moderation_reviewed_at,
+        rejection_reason=canteen.rejection_reason,
     )
 
 
@@ -341,6 +438,8 @@ def create_canteen(payload: CanteenCreate, db: Session = Depends(get_db), _: Use
             user_id=str(payload.user_id),
             name=payload.name,
             location=payload.location,
+            description=payload.description,
+            logo_url=payload.logo_url,
             is_open=payload.is_open,
         )
         db.commit()
@@ -363,7 +462,11 @@ def create_canteen(payload: CanteenCreate, db: Session = Depends(get_db), _: Use
 )
 def list_canteens(db: Session = Depends(get_db)) -> list[CanteenResponse]:
     """List all canteens."""
-    canteens = ListCanteensUseCase(SQLAlchemyCanteenRepository(db)).execute()
+    canteens = [
+        canteen
+        for canteen in ListCanteensUseCase(SQLAlchemyCanteenRepository(db)).execute()
+        if canteen.moderation_status == "approved"
+    ]
     return [_to_response(canteen) for canteen in canteens]
 
 
@@ -377,6 +480,8 @@ def get_canteen(canteen_id: UUID, db: Session = Depends(get_db)) -> CanteenRespo
     """Get a single canteen by ID."""
     canteen = GetCanteenUseCase(SQLAlchemyCanteenRepository(db)).execute(str(canteen_id))
     if canteen is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Canteen not found")
+    if canteen.moderation_status != "approved":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Canteen not found")
     return _to_response(canteen)
 

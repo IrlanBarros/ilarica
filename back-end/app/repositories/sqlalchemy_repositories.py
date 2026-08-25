@@ -78,9 +78,16 @@ def _to_domain_canteen(model: CanteenModel) -> Canteen:
         user_id=str(model.user_id),
         name=model.name,
         location=model.location,
+        description=model.description,
+        logo_url=model.logo_url,
         is_open=model.is_open,
         products=[str(product.id) for product in model.products],
         opening_hours=model.opening_hours or [],
+        commercial_terms_accepted_at=model.commercial_terms_accepted_at,
+        moderation_status=model.moderation_status,
+        moderation_reviewed_at=model.moderation_reviewed_at,
+        moderated_by_id=str(model.moderated_by_id) if model.moderated_by_id else None,
+        rejection_reason=model.rejection_reason,
     )
 
 
@@ -258,8 +265,15 @@ class SQLAlchemyCanteenRepository(ICanteenRepository):
             user_id=UUID(canteen.user_id),
             name=canteen.name,
             location=canteen.location,
+            description=canteen.description,
+            logo_url=canteen.logo_url,
             is_open=canteen.is_open,
             opening_hours=canteen.opening_hours,
+            commercial_terms_accepted_at=canteen.commercial_terms_accepted_at,
+            moderation_status=canteen.moderation_status,
+            moderation_reviewed_at=canteen.moderation_reviewed_at,
+            moderated_by_id=UUID(canteen.moderated_by_id) if canteen.moderated_by_id else None,
+            rejection_reason=canteen.rejection_reason,
         )
         self.session.add(model)
         self.session.flush()
@@ -271,8 +285,15 @@ class SQLAlchemyCanteenRepository(ICanteenRepository):
             raise ValueError("The canteen does not exist.")
         model.name = canteen.name
         model.location = canteen.location
+        model.description = canteen.description
+        model.logo_url = canteen.logo_url
         model.is_open = canteen.is_open
         model.opening_hours = canteen.opening_hours
+        model.commercial_terms_accepted_at = canteen.commercial_terms_accepted_at
+        model.moderation_status = canteen.moderation_status
+        model.moderation_reviewed_at = canteen.moderation_reviewed_at
+        model.moderated_by_id = UUID(canteen.moderated_by_id) if canteen.moderated_by_id else None
+        model.rejection_reason = canteen.rejection_reason
         self.session.flush()
         return _to_domain_canteen(model)
 

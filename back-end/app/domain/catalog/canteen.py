@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from app.domain.exceptions import CanteenAlreadyClosedError, CanteenAlreadyOpenError
 
@@ -15,9 +16,16 @@ class Canteen:
     user_id: str
     name: str
     location: str
+    description: str | None = None
+    logo_url: str | None = None
     is_open: bool = False
     products: list[str] = field(default_factory=list)
     opening_hours: list[dict[str, object]] = field(default_factory=list)
+    commercial_terms_accepted_at: datetime | None = None
+    moderation_status: str = "pending"
+    moderation_reviewed_at: datetime | None = None
+    moderated_by_id: str | None = None
+    rejection_reason: str | None = None
 
     def __post_init__(self) -> None:
         """Normalize and validate the persisted canteen identity."""
