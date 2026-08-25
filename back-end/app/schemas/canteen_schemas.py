@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class BusinessHoursEntry(BaseModel):
+    """One persisted operating-hours range."""
+
+    day: Literal["weekdays", "saturday", "sunday"]
+    opens_at: str = Field(..., pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    closes_at: str = Field(..., pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    is_open: bool
 
 
 class CanteenBase(BaseModel):
@@ -13,18 +23,21 @@ class CanteenBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=150)
     location: str = Field(..., min_length=2, max_length=200)
     is_open: bool = False
-    products: list[str] = Field(default_factory=list)
-
-    @field_validator("products")
+    opening_hours: list[BusinessHoursEntry] = Field(default_factory=list)
+    model_config = ConfigDict(extra="forbid")
+    @field_validator("name", "location")
     @classmethod
-    def validate_products(cls, value: list[str]) -> list[str]:
-        return [product.strip() for product in value if product and product.strip()]
+    def validate_identity_fields(cls, value: str) -> str:
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("Canteen name and location must contain at least 2 characters")
+        return cleaned
 
 
 class CanteenCreate(CanteenBase):
     """Attributes required to create a canteen."""
 
-    user_id: str = Field(..., min_length=1)
+    user_id: UUID
 
 
 class CanteenUpdate(BaseModel):
@@ -33,22 +46,26 @@ class CanteenUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     location: Optional[str] = Field(default=None, min_length=2, max_length=200)
     is_open: Optional[bool] = None
-    products: Optional[list[str]] = None
-
-    @field_validator("products")
+    opening_hours: Optional[list[BusinessHoursEntry]] = None
+    model_config = ConfigDict(extra="forbid")
+    @field_validator("name", "location")
     @classmethod
-    def validate_products(cls, value: Optional[list[str]]) -> Optional[list[str]]:
+    def validate_identity_fields(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value
-        return [product.strip() for product in value if product and product.strip()]
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("Canteen name and location must contain at least 2 characters")
+        return cleaned
 
 
 class CanteenResponse(CanteenBase):
     """Canteen output schema."""
 
-    id: str
-    user_id: str
-    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    products: list[UUID] = Field(default_factory=list)
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
 
 
 SchemaBase = CanteenBase

@@ -3,24 +3,46 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from uuid import uuid4
+from typing import Literal, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.database.models import OrderModel, ProductModel
+from app.database.models import OrderItemModel, OrderModel, UserModel
 from app.database.session import get_db
-from app.domain.order.order import Order
-from app.domain.order.order_item import OrderItem
-from app.repositories.sqlalchemy_repositories import (
-    SQLAlchemyOrderRepository,
-    SQLAlchemyProductRepository,
-    SQLAlchemyWalletRepository,
+from app.dependencies.auth import get_current_user, require_admin, require_customer
+from app.schemas.order_schemas import (
+    CustomerOrderCanteenResponse, CustomerOrderResponse, OrderCreate, OrderItemResponse,
+    OrderResponse, OrderUpdate, SellerOrderDestinationResponse, SellerOrderItemResponse,
 )
-from app.schemas.order_schemas import OrderCreate, OrderItemResponse, OrderResponse, OrderUpdate
-from app.services.order_service import OrderService
+from app.services.order_creation_service import CreatedOrder, OrderCreationError, OrderCreationService
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
+
+FulfillmentType = Literal["pickup", "delivery"]
+
+
+def _order_response(order: OrderModel | CreatedOrder, *, include_pin: bool = True) -> OrderResponse:
+    return OrderResponse(
+        id=str(order.id),
+        customer_id=str(order.customer_id),
+        canteen_id=str(order.canteen_id),
+        drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
+        status=order.status.value if hasattr(order.status, "value") else str(order.status),
+        total_amount=Decimal(str(order.total_amount)),
+        items=[
+            OrderItemResponse(
+                id=str(item.id),
+                product_id=str(item.product_id),
+                quantity=item.quantity,
+                unit_price=Decimal(str(item.unit_price)),
+            )
+            for item in order.items
+        ],
+        pickup_pin=order.pickup_pin if include_pin else None,
+    )
 
 
 @router.post(
@@ -31,54 +53,72 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
     responses={
         201: {"description": "Order created successfully."},
         400: {"description": "Invalid order payload."},
+        401: {"description": "Authentication required."},
+        403: {"description": "The customer does not match the authenticated user."},
         404: {"description": "A referenced product was not found."},
+        409: {"description": "Canteen, product or drop-off zone unavailable."},
     },
 )
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)) -> OrderResponse:
+def create_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_customer),
+) -> OrderResponse:
     """Create a new order with one or more items."""
-    service = OrderService(SQLAlchemyOrderRepository(db), SQLAlchemyProductRepository(db), SQLAlchemyWalletRepository(db))
-    order_items: list[OrderItem] = []
-    for item in payload.items:
-        product = db.get(ProductModel, item.product_id)
-        if product is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product '{item.product_id}' not found",
-            )
-        order_items.append(
-            OrderItem(
-                product_id=item.product_id,
-                product_name=product.name,
-                quantity=item.quantity,
-                unit_price=Decimal(str(item.unit_price)),
-            )
-        )
-
-    total = sum((item.calculateSubtotal() for item in order_items), Decimal("0"))
-    order = Order(id=str(uuid4()), user_id=payload.customer_id, items=order_items, status="draft", is_paid=False)
     try:
-        saved = service.create_order(order)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        order = OrderCreationService(db).create(
+            authenticated_customer_id=current_user.id,
+            customer_id=payload.customer_id,
+            canteen_id=payload.canteen_id,
+            fulfillment_type=payload.fulfillment_type,
+            drop_off_zone_id=payload.drop_off_zone_id,
+            items=[(item.product_id, item.quantity) for item in payload.items],
+        )
+    except OrderCreationError as exc:
+        status_by_code = {
+            "forbidden": status.HTTP_403_FORBIDDEN,
+            "not_found": status.HTTP_404_NOT_FOUND,
+            "conflict": status.HTTP_409_CONFLICT,
+            "invalid_uuid": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid": status.HTTP_400_BAD_REQUEST,
+        }
+        raise HTTPException(status_code=status_by_code[exc.code], detail=str(exc)) from exc
+    return _order_response(order)
 
-    return OrderResponse(
-        id=saved.id,
-        customer_id=payload.customer_id,
-        canteen_id=payload.canteen_id,
-        drop_off_zone_id=payload.drop_off_zone_id,
-        status=saved.status,
-        total_amount=total,
-        items=[
-            OrderItemResponse(
-                id=str(uuid4()),
-                product_id=item.product_id,
-                quantity=item.quantity,
-                unit_price=item.unit_price,
-            )
-            for item in order_items
-        ],
-        pickup_pin=None,
-    )
+
+@router.get("/me", response_model=list[CustomerOrderResponse], summary="List authenticated customer orders")
+def list_my_orders(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_customer),
+) -> list[CustomerOrderResponse]:
+    orders = db.query(OrderModel).options(
+        selectinload(OrderModel.canteen),
+        selectinload(OrderModel.drop_off_zone),
+        selectinload(OrderModel.items).selectinload(OrderItemModel.product),
+    ).filter(OrderModel.customer_id == current_user.id).order_by(OrderModel.id.desc()).all()
+    return [
+        CustomerOrderResponse(
+            id=UUID(str(order.id)),
+            canteen_id=UUID(str(order.canteen_id)),
+            status=order.status.value if hasattr(order.status, "value") else str(order.status),
+            fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
+            items=[SellerOrderItemResponse(
+                id=UUID(str(item.id)), product_id=UUID(str(item.product_id)),
+                name=item.product.name, quantity=item.quantity,
+                unit_price=Decimal(str(item.unit_price)),
+            ) for item in order.items],
+            total_amount=Decimal(str(order.total_amount)),
+            destination=SellerOrderDestinationResponse(
+                id=UUID(str(order.drop_off_zone.id)), name=order.drop_off_zone.name,
+                description=order.drop_off_zone.description,
+            ) if order.drop_off_zone else None,
+            canteen=CustomerOrderCanteenResponse(
+                id=UUID(str(order.canteen.id)), name=order.canteen.name,
+                location=order.canteen.location,
+            ),
+            pickup_pin=order.pickup_pin if order.fulfillment_type == "pickup" else None,
+        ) for order in orders
+    ]
 
 
 @router.get(
@@ -86,22 +126,13 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)) -> OrderRe
     response_model=list[OrderResponse],
     summary="List orders",
 )
-def list_orders(db: Session = Depends(get_db)) -> list[OrderResponse]:
-    """List all orders."""
-    orders = db.query(OrderModel).order_by(OrderModel.id.asc()).all()
-    return [
-        OrderResponse(
-            id=str(order.id),
-            customer_id=str(order.customer_id),
-            canteen_id=str(order.canteen_id),
-            drop_off_zone_id=str(order.drop_off_zone_id),
-            status=str(order.status),
-            total_amount=Decimal(str(order.total_amount)),
-            items=[],
-            pickup_pin=order.pickup_pin,
-        )
-        for order in orders
-    ]
+def list_orders(
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_admin),
+) -> list[OrderResponse]:
+    """List all orders for administrators only."""
+    orders = db.query(OrderModel).options(selectinload(OrderModel.items)).order_by(OrderModel.id.asc()).all()
+    return [_order_response(order) for order in orders]
 
 
 @router.get(
@@ -110,22 +141,19 @@ def list_orders(db: Session = Depends(get_db)) -> list[OrderResponse]:
     summary="Get order by ID",
     responses={404: {"description": "Order not found."}},
 )
-def get_order(order_id: str, db: Session = Depends(get_db)) -> OrderResponse:
-    """Get a single order by ID."""
-    order = db.get(OrderModel, order_id)
+def get_order(
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> OrderResponse:
+    """Get an order only when owned by the authenticated customer or an administrator."""
+    order = db.query(OrderModel).options(selectinload(OrderModel.items)).filter(OrderModel.id == order_id).one_or_none()
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-
-    return OrderResponse(
-        id=str(order.id),
-        customer_id=str(order.customer_id),
-        canteen_id=str(order.canteen_id),
-        drop_off_zone_id=str(order.drop_off_zone_id),
-        status=str(order.status),
-        total_amount=Decimal(str(order.total_amount)),
-        items=[],
-        pickup_pin=order.pickup_pin,
-    )
+    role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
+    if role != "admin" and (role != "customer" or order.customer_id != current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to access this order")
+    return _order_response(order)
 
 
 @router.patch(
@@ -134,7 +162,7 @@ def get_order(order_id: str, db: Session = Depends(get_db)) -> OrderResponse:
     summary="Update order",
     responses={404: {"description": "Order not found."}},
 )
-def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_db)) -> OrderResponse:
+def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> OrderResponse:
     """Partially update order fields."""
     order = db.get(OrderModel, order_id)
     if order is None:
@@ -151,7 +179,8 @@ def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_
         id=str(order.id),
         customer_id=str(order.customer_id),
         canteen_id=str(order.canteen_id),
-        drop_off_zone_id=str(order.drop_off_zone_id),
+        drop_off_zone_id=str(order.drop_off_zone_id) if order.drop_off_zone_id else None,
+        fulfillment_type=cast(FulfillmentType, order.fulfillment_type),
         status=str(order.status),
         total_amount=Decimal(str(order.total_amount)),
         items=[],
@@ -164,7 +193,7 @@ def update_order(order_id: str, payload: OrderUpdate, db: Session = Depends(get_
     summary="Delete order",
     responses={404: {"description": "Order not found."}},
 )
-def delete_order(order_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+def delete_order(order_id: str, db: Session = Depends(get_db), _: UserModel = Depends(require_admin)) -> dict[str, str]:
     """Delete an order by ID."""
     order = db.get(OrderModel, order_id)
     if order is None:

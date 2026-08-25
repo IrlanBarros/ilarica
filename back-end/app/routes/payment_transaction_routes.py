@@ -1,139 +1,160 @@
-"""Payment transaction REST endpoints."""
+"""Authenticated and idempotent payment intent endpoints."""
 
 from __future__ import annotations
 
-from uuid import uuid4
 from decimal import Decimal
+from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.database.models import PaymentTransactionModel
+from app.database.models import OrderModel, PaymentTransactionModel, UserModel
 from app.database.session import get_db
-from app.schemas.payment_transaction_schemas import PaymentTransactionCreate, PaymentTransactionResponse, PaymentTransactionUpdate
+from app.dependencies.auth import get_current_user
+from app.schemas.payment_transaction_schemas import (
+    EfiPixWebhook,
+    PaymentIntentCreate,
+    PaymentTransactionResponse,
+    PaymentWebhookUpdate,
+    PaymentMethod,
+    PaymentStatus,
+)
+from app.services.payment_service import PaymentFlowError, PaymentService, build_pix_qr_data_url
 
 router = APIRouter(prefix="/payment-transactions", tags=["Payment Transactions"])
+
+
+def _response(transaction: PaymentTransactionModel) -> PaymentTransactionResponse:
+    return PaymentTransactionResponse(
+        id=str(transaction.id),
+        order_id=str(transaction.order_id),
+        amount=Decimal(str(transaction.amount)),
+        payment_method=cast(PaymentMethod, transaction.method),
+        status=cast(PaymentStatus, transaction.status),
+        external_reference=transaction.external_reference,
+        pix_copy_paste=transaction.pix_copy_paste,
+        pix_qr_code=(
+            build_pix_qr_data_url(transaction.pix_copy_paste)
+            if transaction.pix_copy_paste and transaction.status == "pending"
+            else None
+        ),
+        expires_at=transaction.expires_at,
+        failure_reason=transaction.failure_reason,
+        created_at=transaction.created_at,
+        confirmed_at=transaction.confirmed_at,
+    )
+
+
+def _raise_payment_error(exc: PaymentFlowError) -> None:
+    raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.post(
     "/",
     response_model=PaymentTransactionResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create payment transaction",
-    responses={201: {"description": "Payment transaction created successfully."}, 400: {"description": "Invalid transaction payload."}},
+    responses={
+        201: {"description": "Payment intent created or safely replayed."},
+        401: {"description": "Authentication required."},
+        402: {"description": "Wallet balance is insufficient or payment was declined."},
+        409: {"description": "Order is already paid or intent conflicts."},
+        422: {"description": "Invalid intent or idempotency key."},
+    },
 )
-def create_payment_transaction(payload: PaymentTransactionCreate, db: Session = Depends(get_db)) -> PaymentTransactionResponse:
-    """Create a payment transaction."""
-    transaction = PaymentTransactionModel(
-        id=uuid4(),
-        order_id=payload.order_id,
-        amount=float(payload.amount),
-        method=payload.payment_method,
-        status=payload.status,
-        external_reference=payload.external_reference,
-    )
-    db.add(transaction)
-    db.commit()
-    db.refresh(transaction)
-    return PaymentTransactionResponse(
-        id=str(transaction.id),
-        order_id=str(transaction.order_id),
-        amount=Decimal(str(transaction.amount)),
-        payment_method=transaction.method,
-        status=transaction.status,
-        external_reference=transaction.external_reference,
-    )
-
-
-@router.get(
-    "/",
-    response_model=list[PaymentTransactionResponse],
-    summary="List payment transactions",
-)
-def list_payment_transactions(db: Session = Depends(get_db)) -> list[PaymentTransactionResponse]:
-    """List payment transactions."""
-    entries = db.query(PaymentTransactionModel).all()
-    return [
-        PaymentTransactionResponse(
-            id=str(item.id),
-            order_id=str(item.order_id),
-            amount=Decimal(str(item.amount)),
-            payment_method=item.method,
-            status=item.status,
-            external_reference=item.external_reference,
+def create_payment_transaction(
+    payload: PaymentIntentCreate,
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> PaymentTransactionResponse:
+    """Create a server-priced Pix or wallet intent exactly once."""
+    try:
+        transaction = PaymentService(db).create_intent(
+            order_id=payload.order_id,
+            payment_method=payload.payment_method,
+            idempotency_key=idempotency_key,
+            user_id=str(current_user.id),
         )
-        for item in entries
-    ]
+    except PaymentFlowError as exc:
+        _raise_payment_error(exc)
+    return _response(transaction)
 
 
-@router.get(
-    "/{transaction_id}",
-    response_model=PaymentTransactionResponse,
-    summary="Get payment transaction by ID",
-    responses={404: {"description": "Payment transaction not found."}},
-)
-def get_payment_transaction(transaction_id: str, db: Session = Depends(get_db)) -> PaymentTransactionResponse:
-    """Get one payment transaction by ID."""
-    transaction = db.get(PaymentTransactionModel, transaction_id)
-    if transaction is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment transaction not found")
-    return PaymentTransactionResponse(
-        id=str(transaction.id),
-        order_id=str(transaction.order_id),
-        amount=Decimal(str(transaction.amount)),
-        payment_method=transaction.method,
-        status=transaction.status,
-        external_reference=transaction.external_reference,
+@router.get("/", response_model=list[PaymentTransactionResponse])
+def list_payment_transactions(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> list[PaymentTransactionResponse]:
+    """List only payment transactions owned by the authenticated customer."""
+    entries = (
+        db.query(PaymentTransactionModel)
+        .join(OrderModel, OrderModel.id == PaymentTransactionModel.order_id)
+        .filter(OrderModel.customer_id == current_user.id)
+        .order_by(PaymentTransactionModel.created_at.desc())
+        .all()
     )
+    service = PaymentService(db)
+    return [_response(service.refresh_expiration(entry)) for entry in entries]
 
 
-@router.patch(
-    "/{transaction_id}",
+@router.post(
+    "/provider-webhooks/efi/pix",
+    status_code=status.HTTP_202_ACCEPTED,
+    include_in_schema=False,
+)
+def receive_efi_pix_webhook(
+    payload: EfiPixWebhook,
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Treat callbacks as hints and confirm every txid through an active Efí query."""
+    service = PaymentService(db)
+    if service.provider.name != "efi":
+        raise HTTPException(status_code=503, detail="Efí payment provider is not configured")
+    reconciled = 0
+    for notification in payload.pix:
+        try:
+            transaction = service.reconcile_by_reference(notification.txid)
+        except PaymentFlowError as exc:
+            _raise_payment_error(exc)
+        if transaction is not None:
+            reconciled += 1
+    return {"received": len(payload.pix), "reconciled": reconciled}
+
+
+@router.post(
+    "/webhooks/{transaction_id}",
     response_model=PaymentTransactionResponse,
-    summary="Update payment transaction",
-    responses={404: {"description": "Payment transaction not found."}, 400: {"description": "Invalid update payload."}},
+    include_in_schema=False,
 )
-def update_payment_transaction(transaction_id: str, payload: PaymentTransactionUpdate, db: Session = Depends(get_db)) -> PaymentTransactionResponse:
-    """Patch a payment transaction."""
-    transaction = db.get(PaymentTransactionModel, transaction_id)
-    if transaction is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment transaction not found")
-
-    updates = payload.model_dump(exclude_unset=True)
-    for key, value in updates.items():
-        if key == "amount":
-            transaction.amount = float(value)
-        elif key == "payment_method":
-            transaction.method = value
-        elif key == "status":
-            transaction.status = value
-        elif key == "external_reference":
-            transaction.external_reference = value
-
-    db.add(transaction)
-    db.commit()
-    db.refresh(transaction)
-    return PaymentTransactionResponse(
-        id=str(transaction.id),
-        order_id=str(transaction.order_id),
-        amount=Decimal(str(transaction.amount)),
-        payment_method=transaction.method,
-        status=transaction.status,
-        external_reference=transaction.external_reference,
-    )
+def confirm_payment_webhook(
+    transaction_id: str,
+    payload: PaymentWebhookUpdate,
+    webhook_secret: str = Header(..., alias="X-Payment-Webhook-Secret"),
+    db: Session = Depends(get_db),
+) -> PaymentTransactionResponse:
+    """Receive an idempotent Pix provider result; never callable with customer JWT alone."""
+    try:
+        transaction = PaymentService(db).confirm_provider_result(
+            transaction_id,
+            result=payload.status,
+            external_reference=payload.external_reference,
+            failure_reason=payload.failure_reason,
+            provided_secret=webhook_secret,
+        )
+    except PaymentFlowError as exc:
+        _raise_payment_error(exc)
+    return _response(transaction)
 
 
-@router.delete(
-    "/{transaction_id}",
-    summary="Delete payment transaction",
-    responses={404: {"description": "Payment transaction not found."}},
-)
-def delete_payment_transaction(transaction_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
-    """Delete a payment transaction by ID."""
-    transaction = db.get(PaymentTransactionModel, transaction_id)
-    if transaction is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment transaction not found")
-
-    db.delete(transaction)
-    db.commit()
-    return {"detail": "Payment transaction deleted successfully"}
+@router.get("/{transaction_id}", response_model=PaymentTransactionResponse)
+def get_payment_transaction(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> PaymentTransactionResponse:
+    """Return the latest state for polling, restricted to the transaction owner."""
+    try:
+        transaction = PaymentService(db).get_owned(transaction_id, str(current_user.id))
+    except PaymentFlowError as exc:
+        _raise_payment_error(exc)
+    return _response(transaction)

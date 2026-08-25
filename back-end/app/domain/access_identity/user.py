@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import ClassVar
+from uuid import UUID
 
 from app.core.security import get_password_hash, verify_password
 from app.domain.exceptions import InvalidCredentialsError, InvalidRoleError
@@ -13,11 +14,14 @@ from app.domain.exceptions import InvalidCredentialsError, InvalidRoleError
 class User:
     """Aggregate root for a platform user."""
 
-    id: str
+    id: UUID
+    name: str
     email: str
+    whatsapp: str
     password_hash: str
     role: str = "customer"
     is_active: bool = True
+    is_email_validated: bool = False
     failed_login_attempts: int = 0
     last_login_at: str | None = None
     assigned_invitation_key: str | None = None

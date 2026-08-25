@@ -1,7 +1,10 @@
 """Application ports."""
 
+from app.application.ports.payment_provider import PaymentProvider, PixCharge, PixChargeStatus
+
 from app.application.ports.repositories import (
     IDeliveryRideRepository,
+    ICanteenRepository,
     IDropOffZoneRepository,
     IInvitationKeyRepository,
     INotificationService,
@@ -14,6 +17,7 @@ from app.application.ports.repositories import (
 
 __all__ = [
     "IUserRepository",
+    "ICanteenRepository",
     "IInvitationKeyRepository",
     "IProductRepository",
     "IDropOffZoneRepository",
@@ -22,4 +26,7 @@ __all__ = [
     "IWalletRepository",
     "IPaymentGateway",
     "INotificationService",
+    "PaymentProvider",
+    "PixCharge",
+    "PixChargeStatus",
 ]

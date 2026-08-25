@@ -5,10 +5,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Iterable
+from uuid import UUID
 
 from app.domain.access_identity.invitation_key import InvitationKey
 from app.domain.access_identity.user import User
 from app.domain.catalog.product import Product
+from app.domain.catalog.canteen import Canteen
 from app.domain.financial.wallet import Wallet
 from app.domain.logistics.delivery_ride import DeliveryRide
 from app.domain.logistics.drop_off_zone import DropOffZone
@@ -19,7 +21,7 @@ class IUserRepository(ABC):
     """Persistence port for users."""
 
     @abstractmethod
-    def get_by_id(self, user_id: str) -> User | None:
+    def get_by_id(self, user_id: UUID) -> User | None:
         """Return a user by its identifier."""
 
     @abstractmethod
@@ -47,7 +49,7 @@ class IInvitationKeyRepository(ABC):
         """Persist a key object."""
 
     @abstractmethod
-    def consume(self, invitation_key: InvitationKey, user_id: str) -> InvitationKey:
+    def consume(self, invitation_key: InvitationKey, user_id: UUID) -> InvitationKey:
         """Mark the invitation key as used by the given user."""
 
 
@@ -65,6 +67,26 @@ class IProductRepository(ABC):
     @abstractmethod
     def list_by_ids(self, product_ids: Iterable[str]) -> list[Product]:
         """Return all products by the provided identifiers."""
+
+
+class ICanteenRepository(ABC):
+    """Persistence port for canteens."""
+
+    @abstractmethod
+    def add(self, canteen: Canteen) -> Canteen:
+        """Create a canteen record."""
+
+    @abstractmethod
+    def save(self, canteen: Canteen) -> Canteen:
+        """Persist changes to an existing canteen."""
+
+    @abstractmethod
+    def get_by_id(self, canteen_id: str) -> Canteen | None:
+        """Return a canteen by its identifier."""
+
+    @abstractmethod
+    def list_all(self) -> list[Canteen]:
+        """Return all canteens in display order."""
 
 
 class IDropOffZoneRepository(ABC):

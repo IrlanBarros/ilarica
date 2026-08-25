@@ -48,11 +48,12 @@ def create_base_users_and_wallets(session) -> tuple[list[UserModel], list[UserMo
 
     try:
         # 5 customers
-        for _ in range(5):
+        for index in range(5):
             user = UserModel(
                 id=uuid4(),
                 name=fake.name(),
-                email=fake.unique.email(),
+                email=f"cliente{index + 1}@aluno.ufca.edu.br",
+                whatsapp=f"558899990{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
                 role_type="customer",
                 is_email_validated=True,
@@ -61,13 +62,14 @@ def create_base_users_and_wallets(session) -> tuple[list[UserModel], list[UserMo
             customers.append(user)
 
         # 3 delivery personnel
-        for _ in range(3):
+        for index in range(3):
             user = UserModel(
                 id=uuid4(),
                 name=fake.name(),
-                email=fake.unique.email(),
+                email=f"entregador{index + 1}@ufca.edu.br",
+                whatsapp=f"558899991{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
-                role_type="delivery_personnel",
+                role_type="courier",
                 is_email_validated=True,
             )
             session.add(user)
@@ -98,14 +100,21 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
     canteens: list[CanteenModel] = []
 
     try:
+        canteen_definitions = [
+            ("Doces da Júlia", "Centro de Convivência", "Julia Andrade", "julia@docesilarica.com"),
+            ("Cantina do Bloco B", "Bloco B - Campus Juazeiro", "Marcos Lima", "marcos@cantinab.com"),
+            ("Marmitas da Tia Cleide", "Próximo à Biblioteca Central", "Cleide Sousa", "cleide@marmitas.com"),
+            ("Pastelaria do CA", "Centro Acadêmico", "Ana Ribeiro", "ana@pastelariadoca.com"),
+        ]
         owners: list[UserModel] = []
-        for _ in range(3):
+        for index, (_, _, owner_name, owner_email) in enumerate(canteen_definitions):
             owner = UserModel(
                 id=uuid4(),
-                name=fake.name(),
-                email=fake.unique.email(),
+                name=owner_name,
+                email=owner_email,
+                whatsapp=f"558899992{index:04d}",
                 password_hash=get_password_hash(DEFAULT_PASSWORD),
-                role_type="canteen_owner",
+                role_type="canteen_staff",
                 is_email_validated=True,
             )
             session.add(owner)
@@ -113,11 +122,18 @@ def create_canteen_owners_and_canteens(session) -> list[CanteenModel]:
 
         session.flush()
 
-        for owner in owners:
+        for owner, (canteen_name, location, _, _) in zip(owners, canteen_definitions, strict=True):
             canteen = CanteenModel(
                 id=uuid4(),
                 user_id=owner.id,
+                name=canteen_name,
+                location=location,
                 is_open=True,
+                opening_hours=[
+                    {"day": "weekdays", "opens_at": "08:00", "closes_at": "18:00", "is_open": True},
+                    {"day": "saturday", "opens_at": "09:00", "closes_at": "13:00", "is_open": True},
+                    {"day": "sunday", "opens_at": "00:00", "closes_at": "00:00", "is_open": False},
+                ],
             )
             session.add(canteen)
             canteens.append(canteen)
@@ -137,28 +153,37 @@ def create_products_for_canteens(session, canteens: list[CanteenModel]) -> list[
     created_products: list[ProductModel] = []
 
     try:
-        product_templates = [
-            ("Coxinha", "snack", 8.50),
-            ("Pastel de Queijo", "snack", 9.00),
-            ("Pão de Queijo", "snack", 6.00),
-            ("Suco de Laranja", "drink", 6.50),
-            ("Refrigerante Lata", "drink", 7.00),
-            ("Água Mineral", "drink", 4.50),
-            ("Arroz com Feijão", "meal", 18.00),
-            ("Frango Grelhado", "meal", 22.50),
-            ("Salada Tropical", "meal", 16.00),
-        ]
+        product_templates = {
+            "Doces da Júlia": [
+                ("Brownie de chocolate", "Brownie artesanal com chocolate meio amargo", 8.50),
+                ("Bolo de pote", "Bolo cremoso em camadas", 10.00),
+                ("Brigadeiro", "Brigadeiro tradicional", 3.50),
+            ],
+            "Cantina do Bloco B": [
+                ("Coxinha de frango", "Coxinha crocante com recheio de frango", 8.00),
+                ("Pão de queijo", "Pão de queijo assado no dia", 6.00),
+                ("Suco de laranja", "Suco natural de laranja", 6.50),
+            ],
+            "Marmitas da Tia Cleide": [
+                ("Marmita de frango", "Arroz, feijão, frango grelhado e salada", 22.00),
+                ("Marmita de carne", "Arroz, feijão, carne acebolada e salada", 24.00),
+                ("Salada tropical", "Folhas, legumes e frutas da estação", 16.00),
+            ],
+            "Pastelaria do CA": [
+                ("Pastel de queijo", "Pastel crocante recheado com queijo", 9.00),
+                ("Pastel de carne", "Pastel crocante recheado com carne", 10.00),
+                ("Caldo de cana", "Caldo de cana gelado", 6.00),
+            ],
+        }
 
         for canteen in canteens:
-            for product_name, category, base_price in product_templates:
+            for product_name, description, base_price in product_templates[canteen.name]:
                 product = ProductModel(
                     id=uuid4(),
                     canteen_id=canteen.id,
                     name=product_name,
-                    description=(
-                        f"{category.capitalize()} preparado com ingredientes frescos. "
-                        f"Imagem de referência: {fake.image_url(width=800, height=600)}"
-                    ),
+                    description=description,
+                    image_url=f"https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=600&q=80&item={len(created_products)}",
                     price=float(base_price + random.uniform(-0.5, 2.5)),
                     is_fast_stock_enabled=random.choice([True, False]),
                     is_active=True,
@@ -205,23 +230,24 @@ def create_orders(session, customer_users: list[UserModel], canteens: list[Cante
     """Step 4 - Create orders with different statuses and link them to a user, canteen, and products."""
     print_step("Step 4/4: creating orders with different statuses and order items...")
     try:
-        order_statuses = ["pending", "preparing", "completed"]
+        order_statuses = ["paid", "preparing", "ready_for_pickup", "completed"]
 
         for index in range(12):
             customer = random.choice(customer_users)
             canteen = random.choice(canteens)
-            zone = random.choice(zones)
-            chosen_products = random.sample(products, k=random.randint(2, 4))
+            canteen_products = [product for product in products if product.canteen_id == canteen.id]
+            chosen_products = random.sample(canteen_products, k=random.randint(1, 3))
             status = order_statuses[index % len(order_statuses)]
 
             order = OrderModel(
                 id=uuid4(),
                 customer_id=customer.id,
                 canteen_id=canteen.id,
-                drop_off_zone_id=zone.id,
+                drop_off_zone_id=None,
+                fulfillment_type="pickup",
                 status=status,
                 total_amount=0.0,
-                pickup_pin=str(random.randint(1000, 9999)) if status == "completed" else None,
+                pickup_pin=str(random.randint(1000, 9999)) if status in {"ready_for_pickup", "completed"} else None,
             )
             session.add(order)
             session.flush()
@@ -242,7 +268,7 @@ def create_orders(session, customer_users: list[UserModel], canteens: list[Cante
             order.total_amount = round(subtotal, 2)
 
         session.commit()
-        print_success("Created 12 orders with statuses pending/preparing/completed and linked order items successfully.")
+        print_success("Created 12 pickup orders with valid operational statuses and linked order items successfully.")
     except Exception as exc:  # pragma: no cover - runtime seeding guard
         session.rollback()
         print(f"\033[1;31mError while creating orders: {exc}\033[0m")

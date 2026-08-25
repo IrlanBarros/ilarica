@@ -52,9 +52,25 @@ nginx/ssl/
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
 
 # OS/editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Test runners
+test-results/
+playwright-report/
+
+# Local temporary artifacts
+tmp/
+
+/output

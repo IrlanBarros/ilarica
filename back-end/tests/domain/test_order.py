@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.domain.exceptions import InvalidPinError, OrderAlreadyPaidError, OrderNotPaidError
+from app.domain.exceptions import InvalidOrderStatusTransitionError, InvalidPinError, OrderAlreadyPaidError, OrderNotPaidError
 from app.domain.order.order import Order
 from app.domain.order.order_item import OrderItem
 
@@ -77,3 +77,17 @@ def test_order_cannot_be_paid_twice(order: Order) -> None:
     # Act / Assert
     with pytest.raises(OrderAlreadyPaidError):
         order.confirmPayment()
+
+
+def test_canteen_fulfillment_requires_exact_forward_transitions(order: Order) -> None:
+    order.startCheckout()
+    order.confirmPayment()
+
+    with pytest.raises(InvalidOrderStatusTransitionError):
+        order.advance_canteen_fulfillment(Order.STATUS_READY_FOR_PICKUP)
+
+    assert order.advance_canteen_fulfillment(Order.STATUS_PREPARING) == Order.STATUS_PREPARING
+    assert order.advance_canteen_fulfillment(Order.STATUS_READY_FOR_PICKUP) == Order.STATUS_READY_FOR_PICKUP
+
+    with pytest.raises(InvalidOrderStatusTransitionError):
+        order.advance_canteen_fulfillment(Order.STATUS_PREPARING)

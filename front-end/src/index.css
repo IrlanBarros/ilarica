@@ -1,1 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Geist:wght@400;600;700&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --color-ilarica-cream: #fffdf6;
+  --color-ilarica-ink: #1f1f1f;
+  --color-ilarica-muted: #6e6b64;
+  --color-ilarica-line: #efece3;
+  --color-ilarica-orange: #ff6b35;
+}
+
+html {
+  background: #fffdf6;
+}
+
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+  margin: 0;
+  font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+}
+
+button, [role="button"] {
+  min-height: 44px;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #ff6b35;
+  outline-offset: 2px;
+}

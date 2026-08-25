@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.database.models import UserModel
 from app.database.session import get_db
 from app.services.auth_service import AuthService
+from app.schemas.password_reset_schemas import PasswordResetConfirm, PasswordResetMessage, PasswordResetRequest
+from app.services.password_reset_service import InvalidPasswordResetTokenError, PasswordResetService, PasswordResetUnavailableError
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -38,3 +40,21 @@ def login_for_access_token(
         ) from exc
 
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/password-reset/request", response_model=PasswordResetMessage, status_code=status.HTTP_202_ACCEPTED)
+def request_password_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)) -> PasswordResetMessage:
+    try:
+        PasswordResetService(db).request(payload.email)
+    except PasswordResetUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Password recovery is temporarily unavailable") from exc
+    return PasswordResetMessage(detail="If the account exists, recovery instructions were sent")
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetMessage)
+def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(get_db)) -> PasswordResetMessage:
+    try:
+        PasswordResetService(db).confirm(payload.token, payload.password)
+    except InvalidPasswordResetTokenError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return PasswordResetMessage(detail="Password updated successfully")

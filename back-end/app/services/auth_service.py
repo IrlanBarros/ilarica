@@ -27,11 +27,14 @@ class AuthService:
             return None
 
         return User(
-            id=str(user_model.id),
+            id=user_model.id,
+            name=user_model.name,
             email=user_model.email,
+            whatsapp=user_model.whatsapp,
             password_hash=user_model.password_hash,
             role=user_model.role_type,
-            is_active=True,
+            is_active=user_model.is_active,
+            is_email_validated=user_model.is_email_validated,
         )
 
     def login_for_access_token(self, email: str, password: str) -> str:

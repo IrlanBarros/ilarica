@@ -1,7 +1,9 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+import logging
 import os
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.routes import (
     auth_router,
@@ -22,6 +24,15 @@ app = FastAPI(
     description="Backend do iLarica - Web App de delivery colaborativo universitário",
     version="0.1.0",
 )
+
+logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Log unexpected failures without exposing internals to API clients."""
+    logger.exception("Unhandled API error on %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 # CORS configuration: read allowed origins from environment (comma-separated)
 _env_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")

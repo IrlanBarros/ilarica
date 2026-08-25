@@ -18,6 +18,9 @@ class Product:
     is_active: bool = True
     stock_quantity: int = 0
     is_fast_stock_enabled: bool = False
+    canteen_id: str | None = None
+    description: str | None = None
+    image_url: str | None = None
 
     def enableFastStock(self) -> bool:
         """Enable a fast-stock mode for the product."""

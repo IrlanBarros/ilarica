@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.domain.exceptions import (
     InvitationKeyAlreadyUsedError,
@@ -20,7 +20,7 @@ class InvitationKey:
     key: str
     issued_to_email: str
     expires_at: datetime
-    used_by_user_id: str | None = None
+    used_by_user_id: UUID | None = None
     is_used: bool = False
     is_expired: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -57,7 +57,7 @@ class InvitationKey:
         self.is_expired = True
         self.is_used = False
 
-    def consume(self, user_id: str) -> None:
+    def consume(self, user_id: UUID) -> None:
         """Consume a valid key once it is used by a user."""
         self.validateUsage()
         self.used_by_user_id = user_id
