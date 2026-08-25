@@ -6,6 +6,7 @@ import { MainLayout } from '../layouts/MainLayout';
 import { CartPage } from '../pages/CartPage';
 import { CheckoutPage } from '../pages/CheckoutPage';
 import { CanteenPage } from '../pages/CanteenPage';
+import { CanteenDashboardPage } from '../pages/CanteenDashboardPage';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
 import { OrderSuccessPage } from '../pages/OrderSuccessPage';
@@ -84,7 +85,7 @@ export const router = createBrowserRouter([
           },
           {
             path: '/vendedor/cardapio',
-            element: <RoleLandingPage title="Gestão de cardápio" description="Gerencie os produtos e a disponibilidade da cantina." />,
+            element: <CanteenDashboardPage />,
           },
           {
             path: '/admin',

@@ -7,6 +7,7 @@ export * from './invitation-key.types';
 export * from './order.types';
 export * from './payment-transaction.types';
 export * from './product.types';
+export * from './seller.types';
 export * from './transport-kit.types';
 export * from './user.types';
 export * from './wallet.types';

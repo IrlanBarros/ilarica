@@ -6,7 +6,7 @@ export function MainLayout(): React.JSX.Element {
   const logout = useAuthStore((state) => state.logout);
   const location = useLocation();
 
-  if (location.pathname === '/' || location.pathname === '/carrinho' || location.pathname === '/checkout' || location.pathname.startsWith('/cantina/') || location.pathname.startsWith('/pedidos/') || location.pathname.startsWith('/pagamentos/')) {
+  if (location.pathname === '/' || location.pathname === '/carrinho' || location.pathname === '/checkout' || location.pathname.startsWith('/cantina/') || location.pathname.startsWith('/pedidos/') || location.pathname.startsWith('/pagamentos/') || location.pathname.startsWith('/vendedor/')) {
     return <Outlet />;
   }
 
