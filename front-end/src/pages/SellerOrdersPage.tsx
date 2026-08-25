@@ -1,5 +1,7 @@
-import chevronDownIcon from '../assets/figma/cart/chevron-down.svg';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+
+import chevronDownIcon from '../assets/figma/cart/chevron-down.svg';
 import forkKnifeIcon from '../assets/figma/cart/fork-knife.svg';
 import searchIcon from '../assets/figma/cart/search.svg';
 import vendorImage from '../assets/figma/canteen/vendor-hero.png';
@@ -13,6 +15,12 @@ const tabs: Array<{ id: SellerOrderStage; label: string }> = [
   { id: 'preparing', label: 'Em preparo' },
   { id: 'ready', label: 'Prontos' },
 ];
+
+const stageStatus: Record<SellerOrderStage, SellerOrder['status']> = {
+  new: 'paid',
+  preparing: 'preparing',
+  ready: 'ready_for_pickup',
+};
 
 function Header(): React.JSX.Element {
   return <header className="border-b border-[#efe6d7] bg-white"><div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-5 px-5 sm:px-8 lg:px-16">
@@ -32,10 +40,11 @@ function Sidebar(): React.JSX.Element {
 
 function OrderCard({ order }: { order: SellerOrder }): React.JSX.Element {
   const advanceOrder = useSellerStore((state) => state.advanceOrder);
+  const transitioningOrderId = useSellerStore((state) => state.transitioningOrderId);
   const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-  const action = order.stage === 'new' ? 'Aceitar pedido' : order.stage === 'preparing' ? 'Marcar como pronto' : 'Aguardando retirada';
-  return <Card className="border-[#eadfce] p-5 shadow-none sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-3"><h2 className="font-display text-lg font-extrabold text-[#7a1e1e]">Pedido {order.displayCode}</h2><span className="rounded-full bg-[#fff0e8] px-2.5 py-1 text-xs font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span></div><p className="mt-1 text-sm text-ilarica-muted">Recebido às {order.createdAt} · <strong className="text-ilarica-ink">{order.customerName}</strong></p></div><strong className="font-display text-lg text-[#7a1e1e]">{currency.format(Number(order.totalAmount))}</strong></div>
-    <div className="mt-5 grid gap-5 border-t border-[#eee5d9] pt-5 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.8fr)_auto] md:items-end"><div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-ilarica-muted">Itens do pedido</p><ul className="space-y-1.5 text-sm">{order.items.map((item) => <li key={item.productId}><strong className="text-ilarica-orange">{item.quantity}x</strong> {item.name}</li>)}</ul></div><div><p className="text-xs font-bold uppercase tracking-wide text-ilarica-muted">{order.fulfillment === 'pickup' ? 'Modalidade' : 'Local de entrega'}</p><p className="mt-2 text-sm font-semibold">{order.destination}</p>{order.notes && <p className="mt-1 text-xs text-ilarica-muted">Obs.: {order.notes}</p>}</div><Button disabled={order.stage === 'ready'} onClick={() => advanceOrder(order.id)} className="h-11 rounded-full bg-ilarica-orange px-6 hover:bg-[#ed5925] disabled:bg-[#d7d1c7]">{action}</Button></div>
+  const action = order.status === 'paid' ? 'Aceitar pedido' : order.status === 'preparing' ? 'Marcar como pronto' : 'Aguardando retirada';
+  return <Card className="border-[#eadfce] p-5 shadow-none sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-3"><h2 className="font-display text-lg font-extrabold text-[#7a1e1e]">Pedido #{order.id.slice(0, 8).toUpperCase()}</h2><span className="rounded-full bg-[#fff0e8] px-2.5 py-1 text-xs font-bold text-ilarica-orange">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</span></div><p className="mt-1 text-sm text-ilarica-muted">Cliente: <strong className="text-ilarica-ink">{order.customer.name}</strong></p></div><strong className="font-display text-lg text-[#7a1e1e]">{currency.format(Number(order.total_amount))}</strong></div>
+    <div className="mt-5 grid gap-5 border-t border-[#eee5d9] pt-5 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.8fr)_auto] md:items-end"><div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-ilarica-muted">Itens do pedido</p><ul className="space-y-1.5 text-sm">{order.items.map((item) => <li key={item.id}><strong className="text-ilarica-orange">{item.quantity}x</strong> {item.name}</li>)}</ul></div><div><p className="text-xs font-bold uppercase tracking-wide text-ilarica-muted">Local de entrega</p><p className="mt-2 text-sm font-semibold">{order.destination.name}</p>{order.destination.description && <p className="mt-1 text-xs text-ilarica-muted">{order.destination.description}</p>}</div><Button disabled={order.status === 'ready_for_pickup'} isLoading={transitioningOrderId === order.id} loadingText="Atualizando..." onClick={() => void advanceOrder(order.id)} className="h-11 rounded-full bg-ilarica-orange px-6 hover:bg-[#ed5925] disabled:bg-[#d7d1c7]">{action}</Button></div>
   </Card>;
 }
 
@@ -43,9 +52,14 @@ export function SellerOrdersPage(): React.JSX.Element {
   const orders = useSellerStore((state) => state.orders);
   const activeStage = useSellerStore((state) => state.orderStage);
   const setOrderStage = useSellerStore((state) => state.setOrderStage);
-  const filtered = orders.filter((order) => order.stage === activeStage);
+  const isLoading = useSellerStore((state) => state.isOrdersLoading);
+  const error = useSellerStore((state) => state.ordersError);
+  const loadOrders = useSellerStore((state) => state.loadOrders);
+  useEffect(() => { void loadOrders(); }, [loadOrders]);
+  const filtered = orders.filter((order) => order.status === stageStatus[activeStage]);
   return <main className="min-h-screen bg-[#fff1d6] text-ilarica-ink"><Header /><div className="mx-auto grid w-full max-w-[1440px] gap-6 px-5 py-7 sm:px-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-10 lg:px-16 lg:py-10"><Sidebar /><section><div><h1 className="font-display text-3xl font-extrabold text-[#7a1e1e] sm:text-4xl">Pedidos Recebidos</h1><p className="mt-1 text-base text-ilarica-muted">Acompanhe os pedidos e mantenha o cliente informado em cada etapa.</p></div>
-    <div className="mt-7 flex gap-2 overflow-x-auto rounded-2xl bg-white p-1.5" role="tablist" aria-label="Status dos pedidos">{tabs.map((tab) => { const count = orders.filter((order) => order.stage === tab.id).length; return <button key={tab.id} type="button" role="tab" aria-selected={activeStage === tab.id} onClick={() => setOrderStage(tab.id)} className={`flex min-w-[130px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${activeStage === tab.id ? 'bg-[#7a1e1e] text-white' : 'text-ilarica-muted hover:bg-[#fffaf2]'}`}>{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeStage === tab.id ? 'bg-white/20 text-white' : 'bg-[#fff0e8] text-ilarica-orange'}`}>{count}</span></button>; })}</div>
-    <div className="mt-5 space-y-4">{filtered.map((order) => <OrderCard key={order.id} order={order} />)}{filtered.length === 0 && <Card className="border-dashed p-10 text-center shadow-none"><p className="font-display text-lg font-bold text-[#7a1e1e]">Nenhum pedido nesta etapa</p><p className="mt-1 text-sm text-ilarica-muted">Os próximos pedidos aparecerão aqui automaticamente.</p></Card>}</div>
+    <div className="mt-7 flex gap-2 overflow-x-auto rounded-2xl bg-white p-1.5" role="tablist" aria-label="Status dos pedidos">{tabs.map((tab) => { const count = orders.filter((order) => order.status === stageStatus[tab.id]).length; return <button key={tab.id} type="button" role="tab" aria-selected={activeStage === tab.id} onClick={() => setOrderStage(tab.id)} className={`flex min-w-[130px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${activeStage === tab.id ? 'bg-[#7a1e1e] text-white' : 'text-ilarica-muted hover:bg-[#fffaf2]'}`}>{tab.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeStage === tab.id ? 'bg-white/20 text-white' : 'bg-[#fff0e8] text-ilarica-orange'}`}>{count}</span></button>; })}</div>
+    {error && <div role="alert" className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-[#efb5b5] bg-[#fff1f1] px-4 py-3 text-sm text-[#9d2323]"><span>{error}</span><button type="button" className="shrink-0 font-bold underline" onClick={() => void loadOrders()}>Tentar novamente</button></div>}
+    <div className="mt-5 space-y-4">{isLoading && <Card className="p-10 text-center shadow-none"><p className="font-display text-lg font-bold text-[#7a1e1e]">Carregando pedidos...</p></Card>}{!isLoading && filtered.map((order) => <OrderCard key={order.id} order={order} />)}{!isLoading && !error && filtered.length === 0 && <Card className="border-dashed p-10 text-center shadow-none"><p className="font-display text-lg font-bold text-[#7a1e1e]">Nenhum pedido nesta etapa</p><p className="mt-1 text-sm text-ilarica-muted">Os próximos pedidos aparecerão aqui automaticamente.</p></Card>}</div>
   </section></div></main>;
 }

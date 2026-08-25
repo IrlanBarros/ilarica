@@ -17,27 +17,38 @@ export interface BusinessHoursEntry {
   isOpen: boolean;
 }
 
+export type SellerOrderStatus = 'paid' | 'preparing' | 'ready_for_pickup';
 export type SellerOrderStage = 'new' | 'preparing' | 'ready';
 
-export interface SellerOrderLine {
-  productId: string;
+export interface SellerOrderCustomer {
+  id: string;
   name: string;
-  quantity: number;
 }
 
-/**
- * View model expected from a future canteen-scoped orders endpoint.
- * IDs remain UUID strings and financial values remain server-provided strings.
- */
+export interface SellerOrderDestination {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export interface SellerOrderLine {
+  id: string;
+  product_id: string;
+  name: string;
+  quantity: number;
+  unit_price: string;
+}
+
 export interface SellerOrder {
   id: string;
-  displayCode: string;
-  customerName: string;
-  createdAt: string;
-  fulfillment: 'pickup' | 'delivery';
-  destination: string;
+  canteen_id: string;
+  status: SellerOrderStatus;
   items: SellerOrderLine[];
-  totalAmount: string;
-  stage: SellerOrderStage;
-  notes?: string;
+  total_amount: string;
+  customer: SellerOrderCustomer;
+  destination: SellerOrderDestination;
+}
+
+export interface SellerOrderStatusUpdate {
+  status: Exclude<SellerOrderStatus, 'paid'>;
 }

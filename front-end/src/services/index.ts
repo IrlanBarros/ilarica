@@ -6,6 +6,7 @@ export * from './invitation-key.service';
 export * from './order.service';
 export * from './payment-transaction.service';
 export * from './product.service';
+export * from './seller-order.service';
 export * from './transport-kit.service';
 export * from './user.service';
 export * from './wallet.service';

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -90,6 +91,50 @@ class OrderResponse(OrderBase):
     items: List[OrderItemResponse] = []
     pickup_pin: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class SellerOrderStatusUpdate(BaseModel):
+    """Explicit next status requested by the authenticated canteen staff."""
+
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["preparing", "ready_for_pickup"]
+
+
+class SellerOrderCustomerResponse(BaseModel):
+    """Minimum customer identity required to prepare an order."""
+
+    id: UUID
+    name: str
+
+
+class SellerOrderDestinationResponse(BaseModel):
+    """Minimum delivery destination required by the canteen operation."""
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+
+
+class SellerOrderItemResponse(BaseModel):
+    """Server-priced order item displayed in the seller dashboard."""
+
+    id: UUID
+    product_id: UUID
+    name: str
+    quantity: int = Field(..., gt=0)
+    unit_price: Decimal = Field(..., gt=0)
+
+
+class SellerOrderResponse(BaseModel):
+    """Canteen-scoped order projection for operational use."""
+
+    id: UUID
+    canteen_id: UUID
+    status: Literal["paid", "preparing", "ready_for_pickup"]
+    items: List[SellerOrderItemResponse]
+    total_amount: Decimal = Field(..., ge=0)
+    customer: SellerOrderCustomerResponse
+    destination: SellerOrderDestinationResponse
 
 
 SchemaBase = OrderBase

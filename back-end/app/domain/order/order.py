@@ -25,6 +25,7 @@ class Order:
     STATUS_DRAFT = "draft"
     STATUS_AWAITING_PAYMENT = "Awaiting Payment"
     STATUS_PAID = "paid"
+    STATUS_PREPARING = "preparing"
     STATUS_IN_TRANSIT = "in_transit"
     STATUS_READY_FOR_PICKUP = "ready_for_pickup"
     STATUS_COMPLETED = "completed"
@@ -90,6 +91,20 @@ class Order:
             )
 
         self.status = self.STATUS_IN_TRANSIT
+        return self.status
+
+    def advance_canteen_fulfillment(self, target_status: str) -> str:
+        """Advance the canteen-owned fulfillment flow by exactly one state."""
+        allowed_transition = {
+            self.STATUS_PAID: self.STATUS_PREPARING,
+            self.STATUS_PREPARING: self.STATUS_READY_FOR_PICKUP,
+        }
+        expected = allowed_transition.get(self.status)
+        if expected is None or target_status != expected:
+            raise InvalidOrderStatusTransitionError(
+                f"Cannot move order from '{self.status}' to '{target_status}'."
+            )
+        self.status = target_status
         return self.status
 
     def mark_as_ready_for_pickup(self) -> str:

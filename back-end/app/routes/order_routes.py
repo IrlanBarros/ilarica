@@ -136,8 +136,14 @@ def create_order(
     response_model=list[OrderResponse],
     summary="List orders",
 )
-def list_orders(db: Session = Depends(get_db)) -> list[OrderResponse]:
-    """List all orders."""
+def list_orders(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> list[OrderResponse]:
+    """List all orders for administrators only."""
+    current_role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
+    if current_role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
     orders = db.query(OrderModel).order_by(OrderModel.id.asc()).all()
     return [
         OrderResponse(

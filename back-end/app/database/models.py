@@ -19,6 +19,7 @@ class OrderStatus(str, Enum):
     DRAFT = "draft"
     AWAITING_PAYMENT = "Awaiting Payment"
     PAID = "paid"
+    PREPARING = "preparing"
     IN_TRANSIT = "in_transit"
     READY_FOR_PICKUP = "ready_for_pickup"
     COMPLETED = "completed"
