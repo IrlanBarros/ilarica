@@ -36,7 +36,7 @@ describe('CheckoutPage', () => {
 
   it('creates a server-priced order and Pix intent without clearing the cart', async () => {
     mock.onPost('/orders/').reply((config) => {
-      expect(JSON.parse(String(config.data))).toEqual({ customer_id: 'customer-1', canteen_id: 'canteen-1', drop_off_zone_id: 'zone-1', items: [{ product_id: 'product-1', quantity: 2 }] });
+      expect(JSON.parse(String(config.data))).toEqual({ customer_id: 'customer-1', canteen_id: 'canteen-1', fulfillment_type: 'delivery', drop_off_zone_id: 'zone-1', items: [{ product_id: 'product-1', quantity: 2 }] });
       return [201, order];
     });
     mock.onPost('/payment-transactions/').reply((config) => {

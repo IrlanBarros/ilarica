@@ -30,6 +30,7 @@ describe('buildOrderPayload', () => {
     ).toEqual({
       customer_id: 'customer-1',
       canteen_id: 'canteen-1',
+      fulfillment_type: 'delivery',
       drop_off_zone_id: 'zone-1',
       items: [{ product_id: 'product-1', quantity: 2 }],
     });
