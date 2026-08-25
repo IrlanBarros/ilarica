@@ -46,7 +46,13 @@ export interface SellerOrder {
   items: SellerOrderLine[];
   total_amount: string;
   customer: SellerOrderCustomer;
-  destination: SellerOrderDestination;
+  fulfillment_type: 'pickup' | 'delivery';
+  destination: SellerOrderDestination | null;
+}
+
+export interface SellerPickupConfirmationResponse {
+  id: string;
+  status: 'completed';
 }
 
 export interface SellerOrderStatusUpdate {

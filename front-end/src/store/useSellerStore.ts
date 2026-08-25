@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { createMyCanteenProduct, deleteMyCanteenProduct, getMyCanteen, listMyCanteenProducts, listSellerOrders, updateMyCanteen, updateMyCanteenProduct, updateSellerOrderStatus } from '../services';
+import { confirmSellerOrderPickup, createMyCanteenProduct, deleteMyCanteenProduct, getMyCanteen, listMyCanteenProducts, listSellerOrders, updateMyCanteen, updateMyCanteenProduct, updateSellerOrderStatus } from '../services';
 import type { BusinessHoursEntry, ProductCreate, ProductUpdate, SellerMenuItem, SellerOrder, SellerOrderStage, SellerSection } from '../types';
 
 const labels: Record<BusinessHoursEntry['id'], string> = { weekdays: 'Segunda a Sexta', saturday: 'Sábado', sunday: 'Domingo' };
@@ -9,19 +9,20 @@ const toItem = (product: Awaited<ReturnType<typeof listMyCanteenProducts>>[numbe
 interface SellerState {
   activeSection: SellerSection; items: SellerMenuItem[]; businessHours: BusinessHoursEntry[];
   isCatalogLoading: boolean; catalogError: string | null; orders: SellerOrder[]; orderStage: SellerOrderStage;
-  isOrdersLoading: boolean; ordersError: string | null; transitioningOrderId: string | null;
+  isOrdersLoading: boolean; ordersError: string | null; transitioningOrderId: string | null; confirmingOrderId: string | null;
   setActiveSection: (section: SellerSection) => void; loadCatalog: () => Promise<void>;
   createItem: (payload: ProductCreate) => Promise<void>; updateItem: (id: string, payload: ProductUpdate) => Promise<void>;
   toggleItemAvailability: (id: string) => Promise<void>; removeItem: (id: string) => Promise<void>;
   toggleBusinessDay: (id: BusinessHoursEntry['id']) => void;
   updateBusinessHour: (id: BusinessHoursEntry['id'], field: 'opensAt' | 'closesAt', value: string) => void;
   saveBusinessHours: () => Promise<void>; setOrderStage: (stage: SellerOrderStage) => void;
-  loadOrders: () => Promise<void>; advanceOrder: (id: string) => Promise<void>; resetOrders: () => void;
+  loadOrders: () => Promise<void>; advanceOrder: (id: string) => Promise<void>;
+  confirmPickup: (id: string, pin: string) => Promise<void>; resetOrders: () => void;
 }
 
 export const useSellerStore = create<SellerState>((set, get) => ({
   activeSection: 'menu', items: [], businessHours: [], isCatalogLoading: false, catalogError: null,
-  orders: [], orderStage: 'new', isOrdersLoading: false, ordersError: null, transitioningOrderId: null,
+  orders: [], orderStage: 'new', isOrdersLoading: false, ordersError: null, transitioningOrderId: null, confirmingOrderId: null,
   setActiveSection: (activeSection) => set({ activeSection }),
   loadCatalog: async () => {
     set({ isCatalogLoading: true, catalogError: null });
@@ -40,5 +41,15 @@ export const useSellerStore = create<SellerState>((set, get) => ({
   setOrderStage: (orderStage) => set({ orderStage }),
   loadOrders: async () => { set({ isOrdersLoading: true, ordersError: null }); try { set({ orders: await listSellerOrders(), isOrdersLoading: false }); } catch { set({ isOrdersLoading: false, ordersError: 'Não foi possível carregar os pedidos da cantina.' }); } },
   advanceOrder: async (id) => { const order = get().orders.find((entry) => entry.id === id); if (!order || order.status === 'ready_for_pickup') return; const status = order.status === 'paid' ? 'preparing' : 'ready_for_pickup'; set({ transitioningOrderId: id, ordersError: null }); try { const updated = await updateSellerOrderStatus(id, { status }); set((state) => ({ orders: state.orders.map((entry) => entry.id === id ? updated : entry), transitioningOrderId: null })); } catch { set({ transitioningOrderId: null, ordersError: 'Não foi possível atualizar o pedido. Recarregue e tente novamente.' }); } },
-  resetOrders: () => set({ orders: [], orderStage: 'new', isOrdersLoading: false, ordersError: null, transitioningOrderId: null }),
+  confirmPickup: async (id, pin) => {
+    set({ confirmingOrderId: id, ordersError: null });
+    try {
+      await confirmSellerOrderPickup(id, pin);
+      set((state) => ({ orders: state.orders.filter((order) => order.id !== id), confirmingOrderId: null }));
+    } catch (error) {
+      set({ confirmingOrderId: null, ordersError: 'PIN inválido ou pedido indisponível para retirada.' });
+      throw error;
+    }
+  },
+  resetOrders: () => set({ orders: [], orderStage: 'new', isOrdersLoading: false, ordersError: null, transitioningOrderId: null, confirmingOrderId: null }),
 }));
