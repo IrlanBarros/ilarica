@@ -82,6 +82,8 @@ class OrderCreate(BaseModel):
 class OrderUpdate(BaseModel):
     """Optional attributes for partial updates."""
 
+    model_config = ConfigDict(extra="forbid")
+
     status: Optional[str] = Field(default=None, min_length=2, max_length=50)
     total_amount: Optional[Decimal] = Field(default=None, ge=0)
     pickup_pin: Optional[str] = Field(default=None, min_length=4, max_length=4)

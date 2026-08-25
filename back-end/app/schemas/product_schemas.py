@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class ProductBase(BaseModel):
     """Common product attributes."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(..., min_length=2, max_length=150)
     description: Optional[str] = None
     image_url: Optional[str] = Field(default=None, max_length=500)
@@ -33,6 +35,8 @@ class ProductCreate(ProductBase):
 
 class ProductUpdate(BaseModel):
     """Optional attributes for partial product updates."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     description: Optional[str] = None

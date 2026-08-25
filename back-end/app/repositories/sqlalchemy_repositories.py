@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Iterable, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.application.ports.repositories import (
     IDeliveryRideRepository,
@@ -267,15 +267,26 @@ class SQLAlchemyCanteenRepository(ICanteenRepository):
         model.name = canteen.name
         model.location = canteen.location
         model.is_open = canteen.is_open
+        model.opening_hours = canteen.opening_hours
         self.session.flush()
         return _to_domain_canteen(model)
 
     def get_by_id(self, canteen_id: str) -> Canteen | None:
-        model = self.session.get(CanteenModel, UUID(canteen_id))
+        model = (
+            self.session.query(CanteenModel)
+            .options(selectinload(CanteenModel.products))
+            .filter(CanteenModel.id == UUID(canteen_id))
+            .one_or_none()
+        )
         return _to_domain_canteen(model) if model is not None else None
 
     def list_all(self) -> list[Canteen]:
-        models = self.session.query(CanteenModel).order_by(CanteenModel.name.asc()).all()
+        models = (
+            self.session.query(CanteenModel)
+            .options(selectinload(CanteenModel.products))
+            .order_by(CanteenModel.name.asc())
+            .all()
+        )
         return [_to_domain_canteen(model) for model in models]
 
 
@@ -284,7 +295,15 @@ class SQLAlchemyOrderRepository(IOrderRepository):
         self.session = session
 
     def get_by_id(self, order_id: str) -> Optional[Order]:
-        model = self.session.get(OrderModel, UUID(order_id))
+        model = (
+            self.session.query(OrderModel)
+            .options(
+                selectinload(OrderModel.items).selectinload(OrderItemModel.product),
+                selectinload(OrderModel.delivery_ride),
+            )
+            .filter(OrderModel.id == UUID(order_id))
+            .one_or_none()
+        )
         return _to_domain_order(model) if model is not None else None
 
     def save(self, order: Order) -> Order:
@@ -306,7 +325,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             model.total_amount = float(order.total_with_delivery())
             model.pickup_pin = order.pickup_pin
         self.session.flush()
-        return _to_domain_order(model)
+        return order
 
     def add(self, order: Order) -> Order:
         model = OrderModel(
@@ -320,6 +339,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             pickup_pin=order.pickup_pin,
             items=[
                 OrderItemModel(
+                    id=uuid4(),
                     product_id=UUID(item.product_id),
                     unit_price=item.unit_price,
                     quantity=item.quantity,
@@ -329,7 +349,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
         )
         self.session.add(model)
         self.session.flush()
-        return _to_domain_order(model)
+        return order
 
 
 class SQLAlchemyDeliveryRideRepository(IDeliveryRideRepository):

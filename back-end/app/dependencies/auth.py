@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -35,13 +37,31 @@ def get_current_user(
     user = db.query(UserModel).filter(UserModel.email == subject).one_or_none()
     if user is None:
         raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user account",
+        )
 
     return user
 
 
-def require_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
-    """Allow access only to authenticated platform administrators."""
-    role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
-    if role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
-    return current_user
+def require_roles(*allowed_roles: str) -> Callable[..., UserModel]:
+    """Build an authentication dependency restricted to explicit roles."""
+    normalized_roles = frozenset(allowed_roles)
+
+    def dependency(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+        role = str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
+        if role not in normalized_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource",
+            )
+        return current_user
+
+    return dependency
+
+
+require_admin = require_roles("admin")
+require_customer = require_roles("customer")
+require_canteen_staff = require_roles("canteen_staff")

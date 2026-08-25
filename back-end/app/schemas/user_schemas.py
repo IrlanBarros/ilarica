@@ -14,6 +14,8 @@ _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 class UserBase(BaseModel):
     """Common user attributes."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(..., min_length=2, max_length=150)
     email: str
     whatsapp: str
@@ -74,6 +76,8 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Optional attributes for partial user updates."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: Optional[str] = Field(default=None, min_length=2, max_length=150)
     email: Optional[str] = None

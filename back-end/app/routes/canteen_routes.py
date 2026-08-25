@@ -15,7 +15,7 @@ from app.application.use_cases.manage_canteens import (
     UpdateCanteenUseCase,
 )
 from app.database.models import CanteenModel, OrderItemModel, OrderModel, OrderStatus, ProductModel, UserModel
-from app.dependencies.auth import get_current_user, require_admin
+from app.dependencies.auth import require_admin, require_canteen_staff
 from app.domain.exceptions import InvalidOrderStatusTransitionError, InvalidPinError
 from app.domain.order.order import Order
 from app.domain.catalog.canteen import Canteen
@@ -40,17 +40,11 @@ from app.schemas.order_schemas import (
 router = APIRouter(prefix="/canteens", tags=["Canteens"])
 
 
-def _current_role(current_user: UserModel) -> str:
-    return str(getattr(current_user, "role_type", getattr(current_user, "role", "")))
-
-
 def _order_status_value(order: OrderModel) -> str:
     return order.status.value if isinstance(order.status, OrderStatus) else str(order.status)
 
 
 def _owned_canteen(db: Session, current_user: UserModel) -> CanteenModel:
-    if _current_role(current_user) != "canteen_staff":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Canteen staff access required")
     canteen = db.query(CanteenModel).filter(CanteenModel.user_id == current_user.id).one_or_none()
     if canteen is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Canteen not found for authenticated user")
@@ -101,7 +95,7 @@ def _product_response(product: ProductModel) -> ProductResponse:
 
 @router.get("/me", response_model=CanteenResponse, summary="Get authenticated staff canteen")
 def get_my_canteen(
-    db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: UserModel = Depends(require_canteen_staff)
 ) -> CanteenResponse:
     return CanteenResponse.model_validate(_owned_canteen(db, current_user))
 
@@ -110,7 +104,7 @@ def get_my_canteen(
 def update_my_canteen(
     payload: CanteenUpdate,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> CanteenResponse:
     canteen = _owned_canteen(db, current_user)
     for key, value in payload.model_dump(exclude_unset=True, mode="json").items():
@@ -123,7 +117,7 @@ def update_my_canteen(
 
 @router.get("/me/products", response_model=list[ProductResponse], summary="List authenticated canteen products")
 def list_my_products(
-    db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: UserModel = Depends(require_canteen_staff)
 ) -> list[ProductResponse]:
     canteen = _owned_canteen(db, current_user)
     products = db.query(ProductModel).filter(ProductModel.canteen_id == canteen.id).order_by(ProductModel.name).all()
@@ -134,7 +128,7 @@ def list_my_products(
 def create_my_product(
     payload: ProductBase,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> ProductResponse:
     canteen = _owned_canteen(db, current_user)
     product = ProductModel(canteen_id=canteen.id, **payload.model_dump())
@@ -158,7 +152,7 @@ def update_my_product(
     product_id: UUID,
     payload: ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> ProductResponse:
     canteen = _owned_canteen(db, current_user)
     product = _owned_product(db, canteen, product_id)
@@ -174,7 +168,7 @@ def update_my_product(
 def delete_my_product(
     product_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> dict[str, str]:
     canteen = _owned_canteen(db, current_user)
     product = _owned_product(db, canteen, product_id)
@@ -186,7 +180,7 @@ def delete_my_product(
 @router.get("/me/orders", response_model=list[SellerOrderResponse], summary="List authenticated canteen orders")
 def list_my_canteen_orders(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> list[SellerOrderResponse]:
     """Return only operational orders owned by the authenticated staff canteen."""
     canteen = _owned_canteen(db, current_user)
@@ -200,7 +194,7 @@ def list_my_canteen_orders(
 @router.get("/me/orders/history", response_model=list[SellerOrderResponse], summary="List authenticated canteen order history")
 def list_my_canteen_order_history(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> list[SellerOrderResponse]:
     """Return only completed orders owned by the authenticated staff canteen."""
     canteen = _owned_canteen(db, current_user)
@@ -220,7 +214,7 @@ def update_my_canteen_order_status(
     order_id: UUID,
     payload: SellerOrderStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> SellerOrderResponse:
     """Advance exactly one canteen fulfillment state and commit atomically."""
     canteen = _owned_canteen(db, current_user)
@@ -267,7 +261,7 @@ def confirm_my_canteen_order_pickup(
     order_id: UUID,
     payload: SellerPickupConfirmation,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_canteen_staff),
 ) -> SellerPickupConfirmationResponse:
     """Complete an owned pickup exactly once while holding a row-level lock."""
     canteen = _owned_canteen(db, current_user)
